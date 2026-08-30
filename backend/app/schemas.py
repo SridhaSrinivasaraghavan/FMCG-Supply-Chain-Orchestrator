@@ -87,3 +87,38 @@ class PurchaseOrderResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class TransportRouteResponse(BaseModel):
+    route_id: int
+    supplier_id: int
+    factory_id: int
+    route_name: str
+    key_highways: Optional[str]
+    key_cities_passed: Optional[str]
+    distance_km: Optional[int]
+    normal_transit_hours: int
+    
+    class Config:
+        from_attributes = True
+
+class DeliveryScheduleResponse(BaseModel):
+    schedule_id: int
+    route_id: int
+    material_id: int
+    delivery_day: str
+    expected_departure_time: str
+    expected_arrival_time: str
+    
+    class Config:
+        from_attributes = True
+
+class VendorCommunicationResponse(BaseModel):
+    comm_id: int
+    supplier_id: int
+    communication_type: str
+    subject: str
+    sent_at: datetime
+    status: str
+    
+    class Config:
+        from_attributes = True

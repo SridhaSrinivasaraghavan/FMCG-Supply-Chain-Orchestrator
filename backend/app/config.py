@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: Optional[str] = None
     SENDGRID_FROM_EMAIL: str = "no-reply@fmcg-corp.com"
     OPENWEATHER_API_KEY: Optional[str] = None
+    NEWSAPI_KEY: Optional[str] = None
+    
+    # Auto-Scan Configuration
+    AUTO_SCAN_INTERVAL_MINUTES: int = 30
+    AUTO_SCAN_ENABLED: bool = True
+    SUPPLY_CHAIN_KEYWORDS: str = "supply chain disruption,port strike,flood logistics,raw material shortage,freight delay,commodity price surge"
     
     # Business Logic
     FACTORY_IDLE_COST_PER_DAY: float = 15000.0

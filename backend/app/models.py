@@ -56,3 +56,44 @@ class PurchaseOrder(Base):
     total_cost = Column(Numeric(12, 2), nullable=False)
     status = Column(String(50), default="ISSUED")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Factory(Base):
+    __tablename__ = "factories"
+    factory_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    city = Column(String(100))
+    region = Column(String(100), nullable=False)
+    operating_hours_start = Column(String(10), nullable=False)
+    operating_hours_end = Column(String(10), nullable=False)
+    receiving_window_start = Column(String(10), nullable=False)
+    receiving_window_end = Column(String(10), nullable=False)
+
+class TransportRoute(Base):
+    __tablename__ = "transport_routes"
+    route_id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False)
+    factory_id = Column(Integer, ForeignKey("factories.factory_id"), nullable=False)
+    route_name = Column(String(100), nullable=False)
+    key_highways = Column(String(255)) # Comma separated list of highways
+    key_cities_passed = Column(String(255)) # Comma separated list of cities
+    distance_km = Column(Integer)
+    normal_transit_hours = Column(Integer, nullable=False)
+
+class DeliverySchedule(Base):
+    __tablename__ = "delivery_schedules"
+    schedule_id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(Integer, ForeignKey("transport_routes.route_id"), nullable=False)
+    material_id = Column(Integer, ForeignKey("raw_materials.material_id"), nullable=False)
+    delivery_day = Column(String(20), nullable=False) # e.g. "Monday", "Daily"
+    expected_departure_time = Column(String(10), nullable=False) # e.g. "08:00"
+    expected_arrival_time = Column(String(10), nullable=False) # e.g. "14:00"
+
+class VendorCommunication(Base):
+    __tablename__ = "vendor_communications"
+    comm_id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False)
+    communication_type = Column(String(50), nullable=False) # 'early_dispatch_request', 'emergency_po'
+    subject = Column(String(255), nullable=False)
+    body = Column(String, nullable=False)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String(50), default="SENT")

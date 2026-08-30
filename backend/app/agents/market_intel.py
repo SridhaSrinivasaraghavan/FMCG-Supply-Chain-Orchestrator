@@ -20,6 +20,11 @@ def market_intel_node(state: AgentState):
         template="""You are a Supply Chain Market Intelligence Agent.
         Analyze the following disruption report and extract the key information into JSON.
         
+        CRITICAL INSTRUCTIONS:
+        - Do NOT repeat the JSON schema back to me. 
+        - You must actually extract the values from the Disruption Report and fill out the JSON.
+        - ONLY output valid, raw JSON. Do not add markdown blocks like ```json or any other text.
+        
         {format_instructions}
         
         Disruption Report:

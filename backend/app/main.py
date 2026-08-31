@@ -11,21 +11,33 @@ from app.models import RawMaterial, Supplier, DisruptionLog, PurchaseOrder, Tran
 from app.schemas import (
     DisruptionInput, MaterialInventoryResponse, DisruptionLogResponse, 
     PurchaseOrderResponse, SupplierResponse, TransportRouteResponse,
-    DeliveryScheduleResponse, VendorCommunicationResponse
+    DeliveryScheduleResponse, VendorCommunicationResponse,
+    UpdatePOStatusRequest, UpdateInventoryRequest, UpdateSupplierReliabilityRequest,
+    CreateSupplierRequest, CreateMaterialRequest,
 )
 from app.services.news_fetcher import UnifiedNewsFetcher
 from app.services.scheduler import start_scheduler, stop_scheduler, get_latest_scan, trigger_manual_scan
+from app.tools.db_tools import update_po_status, update_inventory_stock, update_supplier_reliability
 from app.agents.graph import app_graph
 
+import json
+import asyncio
+import uuid
 import logging
+from datetime import datetime
+
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Semaphore to prevent concurrent pipeline executions (max 2 simultaneous)
+_pipeline_semaphore = asyncio.Semaphore(2)
 
 
 # Application lifespan (startup + shutdown)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print(f"Starting System. Using LLM Provider: {settings.LLM_PROVIDER}")
+    logger.info(f"Starting System. Using LLM Provider: {settings.LLM_PROVIDER}")
     start_scheduler()
     yield
     # Shutdown
@@ -35,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FMCG Autonomous Supply Chain System",
     description="Multi-Agent AI system for real-time supply chain disruption detection and autonomous mitigation.",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -59,10 +71,11 @@ async def health_check():
         "auto_scan_enabled": settings.AUTO_SCAN_ENABLED,
         "auto_scan_interval_minutes": settings.AUTO_SCAN_INTERVAL_MINUTES,
         "database": "connected",
+        "version": "3.0.0",
     }
 
 
-# ──────────────────────── Inventory & Data ────────────────────────
+# ──────────────────────── Inventory & Data (READ) ────────────────────────
 
 @app.get("/api/inventory", response_model=list[MaterialInventoryResponse])
 async def get_inventory(db: AsyncSession = Depends(get_db)):
@@ -117,6 +130,88 @@ async def get_communications(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+# ──────────────────────── CRUD Operations (UPDATE/CREATE) ────────────────────────
+
+@app.patch("/api/purchase-orders/{po_id}")
+async def patch_purchase_order(po_id: int, request: UpdatePOStatusRequest):
+    """Update a purchase order's status (ISSUED → CONFIRMED → SHIPPED → DELIVERED or CANCELLED)."""
+    try:
+        result = update_po_status(po_id, request.status.value)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/inventory/{material_id}")
+async def patch_inventory(material_id: int, request: UpdateInventoryRequest):
+    """Adjust inventory stock level for a material."""
+    try:
+        result = update_inventory_stock(material_id, request.quantity_delta, request.reason)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/suppliers/{supplier_id}")
+async def patch_supplier_reliability(supplier_id: int, request: UpdateSupplierReliabilityRequest):
+    """Update a supplier's reliability score."""
+    try:
+        result = update_supplier_reliability(supplier_id, request.reliability_score)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/suppliers", response_model=SupplierResponse)
+async def create_supplier(request: CreateSupplierRequest, db: AsyncSession = Depends(get_db)):
+    """Add a new supplier to the database."""
+    from app.models import Supplier as SupplierModel
+    new_supplier = SupplierModel(
+        name=request.name,
+        contact_email=request.contact_email,
+        location_region=request.location_region,
+        lead_time_days=request.lead_time_days,
+        reliability_score=request.reliability_score,
+    )
+    db.add(new_supplier)
+    await db.commit()
+    await db.refresh(new_supplier)
+    return new_supplier
+
+
+@app.post("/api/inventory", response_model=MaterialInventoryResponse)
+async def create_material(request: CreateMaterialRequest, db: AsyncSession = Depends(get_db)):
+    """Add a new raw material to the inventory."""
+    from app.models import RawMaterial as MaterialModel
+    new_material = MaterialModel(
+        name=request.name,
+        category=request.category,
+        current_stock=request.current_stock,
+        unit=request.unit,
+        reorder_level=request.reorder_level,
+        daily_consumption_rate=request.daily_consumption_rate,
+        shelf_life_days=request.shelf_life_days,
+    )
+    db.add(new_material)
+    await db.commit()
+    await db.refresh(new_material)
+    
+    days_remaining = float(new_material.current_stock) / float(new_material.daily_consumption_rate) if new_material.daily_consumption_rate > 0 else 0
+    return {
+        "material_id": new_material.material_id,
+        "name": new_material.name,
+        "current_stock": float(new_material.current_stock),
+        "unit": new_material.unit,
+        "days_remaining": days_remaining,
+    }
+
+
 # ──────────────────────── Disruption Pipeline ────────────────────────
 
 @app.post("/api/simulate-news")
@@ -130,35 +225,44 @@ async def trigger_disruption(payload: DisruptionInput):
     """
     Kicks off the LangGraph autonomous multi-agent pipeline.
     This is the MANUAL trigger — user provides the news text directly.
+    
+    Uses asyncio.to_thread() to prevent blocking the event loop,
+    and a semaphore to limit concurrent pipeline executions.
     """
+    pipeline_run_id = str(uuid.uuid4())[:12]
+    
     initial_state = {
         "raw_news": payload.news_text,
         "auto_triggered": False,
+        "pipeline_run_id": pipeline_run_id,
+        "started_at": datetime.utcnow().isoformat(),
         "messages": [],
     }
 
-    print(f"Triggering pipeline with news: {payload.news_text[:50]}...")
+    logger.info(f"Pipeline {pipeline_run_id}: Triggering with news: {payload.news_text[:80]}...")
 
     try:
-        # Run graph
-        final_state = app_graph.invoke(initial_state)
+        # Acquire semaphore to prevent too many concurrent pipelines
+        async with _pipeline_semaphore:
+            # Run the synchronous LangGraph in a thread to avoid blocking the event loop
+            final_state = await asyncio.to_thread(app_graph.invoke, initial_state)
 
-        # Format an enriched response to the client
         return {
             "status": "success",
+            "pipeline_run_id": pipeline_run_id,
             "threat_assessed": final_state.get("threat_payload"),
             "impacted_materials": final_state.get("impacted_materials", []),
             "risk_reasoning": final_state.get("risk_reasoning"),
+            "risk_level": final_state.get("risk_level"),
             "financial_analysis": final_state.get("financial_analysis", []),
             "actions_taken": final_state.get("recommended_actions", []),
             "executive_summary": final_state.get("executive_summary"),
             "errors": final_state.get("error"),
         }
     except Exception as e:
+        logger.error(f"Pipeline {pipeline_run_id}: Failed — {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-import json
-import asyncio
 
 @app.post("/api/stream-disruption")
 async def stream_disruption(payload: DisruptionInput):
@@ -166,31 +270,45 @@ async def stream_disruption(payload: DisruptionInput):
     Kicks off the LangGraph pipeline and streams the output of each agent live 
     using Server-Sent Events (SSE).
     """
+    pipeline_run_id = str(uuid.uuid4())[:12]
+    
     initial_state = {
         "raw_news": payload.news_text,
         "auto_triggered": False,
+        "pipeline_run_id": pipeline_run_id,
+        "started_at": datetime.utcnow().isoformat(),
         "messages": [],
     }
 
     async def event_generator():
         try:
-            # LangGraph .stream() yields dicts: {node_name: {state_updates}}
-            for output in app_graph.stream(initial_state):
+            # Send pipeline metadata first
+            yield f"data: {json.dumps({'agent': 'pipeline_start', 'data': {'pipeline_run_id': pipeline_run_id}})}\n\n"
+            
+            # Run LangGraph stream in a thread to avoid blocking
+            def run_stream():
+                results = []
+                for output in app_graph.stream(initial_state):
+                    results.append(output)
+                return results
+            
+            async with _pipeline_semaphore:
+                stream_results = await asyncio.to_thread(run_stream)
+            
+            for output in stream_results:
                 for node_name, state_update in output.items():
-                    # We only want to stream the specific output of the agent, not the whole state history
-                    # We will package it as an SSE message
                     event_data = {
                         "agent": node_name,
-                        "data": state_update
+                        "data": state_update,
+                        "pipeline_run_id": pipeline_run_id,
                     }
                     yield f"data: {json.dumps(event_data)}\n\n"
-                    # Give a small artificial delay so the UI can process the stream elegantly
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.3)
                     
-            yield "data: {\"agent\": \"done\", \"data\": {}}\n\n"
+            yield f"data: {json.dumps({'agent': 'done', 'data': {'pipeline_run_id': pipeline_run_id}})}\n\n"
         except Exception as e:
-            logger.error(f"Streaming error: {e}")
-            yield f"data: {json.dumps({'agent': 'error', 'error': str(e)})}\n\n"
+            logger.error(f"Pipeline {pipeline_run_id}: Streaming error — {e}")
+            yield f"data: {json.dumps({'agent': 'error', 'error': str(e), 'pipeline_run_id': pipeline_run_id})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -231,7 +349,7 @@ async def manual_trigger_scan():
     Useful for testing the news → pipeline flow on demand.
     """
     try:
-        scan = trigger_manual_scan()
+        scan = await asyncio.to_thread(trigger_manual_scan)
         return {
             "status": "scan_complete",
             "articles_fetched": scan.articles_fetched,

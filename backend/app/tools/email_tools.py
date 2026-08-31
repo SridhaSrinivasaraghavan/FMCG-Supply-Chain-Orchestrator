@@ -1,8 +1,6 @@
 from app.config import settings
 import logging
 
-# Set up simple logging for the mock email
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def send_purchase_order_email(supplier_email: str, po_details: dict) -> dict:

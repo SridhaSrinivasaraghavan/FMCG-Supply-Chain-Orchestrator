@@ -46,6 +46,7 @@ class DisruptionLog(Base):
     severity_level = Column(String(20))
     action_taken = Column(String)
     status = Column(String(50), default="PROCESSED")
+    pipeline_run_id = Column(String(50), nullable=True)  # Links to the pipeline run that created this
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
@@ -56,6 +57,7 @@ class PurchaseOrder(Base):
     total_cost = Column(Numeric(12, 2), nullable=False)
     status = Column(String(50), default="ISSUED")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    pipeline_run_id = Column(String(50), nullable=True)  # Links to the pipeline run that created this
 
 class Factory(Base):
     __tablename__ = "factories"

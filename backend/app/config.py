@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     
     # Business Logic
     FACTORY_IDLE_COST_PER_DAY: float = 15000.0
+    MAX_AUTO_PO_COST: float = 100000.0  # POs above this amount will be flagged for human review
     
     class Config:
         env_file = ".env"

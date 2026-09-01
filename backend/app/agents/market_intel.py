@@ -1,51 +1,94 @@
 """
-Agent 1: Market Intel Agent (The Scout)
+Agent 1: Market Intel Agent (The Scout) — v3.1
 
-Ingests unstructured news text and extracts a structured JSON threat payload.
-Uses improved prompts with explicit schema examples, severity mapping,
-and validated output via the inter-agent validation layer.
+Key improvements over v3.0:
+- Realistic delay inference table (LLM infers delay from event type, not extracts from text)
+- Confidence scoring (0-100): measures how certain the LLM is about the threat
+- is_supply_chain_relevant flag: prevents wasting LLM compute on irrelevant news
+- Confidence < 60 → flagged for human review in approval queue
 """
 from app.agents.state import AgentState
 from app.agents.validators import validate_threat_payload
 from app.services.llm_factory import get_llm
 from app.services.llm_utils import invoke_llm_with_retry, parse_llm_json
 from langchain_core.prompts import PromptTemplate
-import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-# ─── Improved Prompt: Explicit schema with severity mapping ───
 MARKET_INTEL_PROMPT = PromptTemplate(
-    template="""You are a Supply Chain Threat Extraction Engine.
-Given a disruption report, extract EXACTLY these fields as JSON.
+    template="""You are a Supply Chain Threat Intelligence Engine for a major FMCG manufacturer in India.
 
-EXAMPLE OUTPUT:
+Your job: Read a news report and extract a structured JSON threat assessment.
+
+## DELAY INFERENCE TABLE
+News articles RARELY state the exact delay. Use this table to INFER it based on event type and severity:
+
+| Event Type               | Realistic Delay Estimate                          |
+|--------------------------|---------------------------------------------------|
+| road_accident_minor      | 3-8 hours → use 0.3 days                         |
+| road_accident_major      | 12-48 hours → use 1-2 days                       |
+| road_bridge_closure      | 7-30 days (structural damage or repair)           |
+| flood_localized          | 2-5 days (streets flood, clear in 1-3 days)      |
+| flood_regional_severe    | 10-25 days (monsoon, widespread, rail+road)       |
+| fire_warehouse           | 21-60 days (facility rebuilt/alternate found)     |
+| fire_factory             | 45-120 days (production line destroyed)           |
+| port_strike              | 7-21 days                                         |
+| rail_strike              | 5-14 days                                         |
+| highway_blockade         | 3-10 days (political, protest)                    |
+| earthquake_moderate      | 14-45 days                                        |
+| earthquake_severe        | 60-120 days                                       |
+| chemical_spill_road      | 2-5 days (road closed for cleanup)                |
+| chemical_spill_facility  | 30-90 days (facility shutdown)                    |
+| cyclone_severe_weather   | 3-10 days (depends on landfall path)              |
+| dense_fog_highway        | 0.5-1 day                                         |
+| crop_failure_shortage    | 30-90 days                                        |
+| customs_regulatory_delay | 3-10 days                                         |
+| transport_disruption     | 1-5 days (generic)                                |
+| other                    | 3-7 days (default)                                |
+
+## REGION MAPPING (India)
+- Delhi, Haryana, Punjab, UP, Uttarakhand, Himachal, J&K, Rajasthan → North
+- Mumbai, Pune, Nashik, Goa, Gujarat → West
+- Bangalore, Chennai, Hyderabad, Kerala, Tamil Nadu, Andhra → South
+- Kolkata, West Bengal, Odisha, Bihar, Jharkhand, Northeast → East
+- MP, Chhattisgarh, Telangana (central region), Nagpur → Central
+
+## SEVERITY MAPPING (based on delay):
+- < 1 day = LOW
+- 1-4 days = MEDIUM
+- 5-14 days = HIGH
+- 15+ days = CRITICAL
+
+## CONFIDENCE SCORING (how certain are you that this is a real, supply-chain-relevant threat?):
+- 90-100: Direct, confirmed disruption. Specific location. Clear impact on freight/production.
+- 70-89: Credible report. Location implied. Likely to cause delays.
+- 50-69: Possible impact but vague. Location unclear or event not confirmed.
+- 30-49: Indirect mention. May affect supply chain but not central to article.
+- 0-29: Unrelated, rumour, or irrelevant to FMCG supply chain.
+
+## YOUR TASK
+1. Determine if this article is relevant to our supply chain (freight, raw materials, roads, ports, factories, floods, strikes).
+2. If NOT relevant, set is_supply_chain_relevant=false and everything else to defaults.
+3. If relevant, extract all fields carefully.
+
+Output ONLY valid JSON — no markdown, no explanation:
 {{
-  "event_type": "flood",
+  "is_supply_chain_relevant": true,
+  "confidence_score": 85,
+  "event_type": "flood_regional_severe",
   "region": "North",
   "severity": "HIGH",
-  "estimated_delay_days": 7,
-  "affected_commodities": ["wheat", "sugar"],
-  "summary": "Severe flooding in North region halting freight transport."
+  "estimated_delay_days": 14,
+  "affected_commodities": ["wheat", "flour"],
+  "key_location": "Delhi-Meerut highway near Ghaziabad",
+  "summary": "Severe monsoon flooding in North region blocks NH58 and NH24, halting freight for an estimated 2 weeks."
 }}
 
-FIELD RULES:
-- event_type: One of [flood, strike, shortage, accident, weather, fire, chemical_spill, earthquake, political, transport_disruption, other]
-- region: One of [North, South, East, West, Central, Unknown]. Extract from location names (e.g., Delhi/NCR = North, Mumbai = West, Chennai/Bangalore = South, Kolkata = East)
-- severity: Use this mapping based on delay duration:
-  * 0-2 day delay = "LOW"
-  * 3-7 day delay = "MEDIUM"  
-  * 8-14 day delay = "HIGH"
-  * 15+ day delay = "CRITICAL"
-- estimated_delay_days: Integer between 0 and 90. Extract from the text. If unclear, estimate based on event type.
-- affected_commodities: List generic commodity names (wheat, sugar, oil, flour, chemicals). NOT brand names.
-- summary: One sentence, max 50 words.
+Valid event_type values: road_accident_minor, road_accident_major, road_bridge_closure, flood_localized, flood_regional_severe, fire_warehouse, fire_factory, port_strike, rail_strike, highway_blockade, earthquake_moderate, earthquake_severe, chemical_spill_road, chemical_spill_facility, cyclone_severe_weather, dense_fog_highway, crop_failure_shortage, customs_regulatory_delay, transport_disruption, other
 
-CRITICAL: Output ONLY raw JSON. No markdown blocks, no explanation text, no preamble.
-
-Disruption Report:
+News Article:
 {raw_news}
 """,
     input_variables=["raw_news"],
@@ -53,66 +96,71 @@ Disruption Report:
 
 
 def market_intel_node(state: AgentState):
-    """
-    Agent 1: Ingests unstructured news and extracts a structured JSON threat payload.
-    Uses validation to ensure output conforms to expected schema.
-    """
+    """Agent 1: Extracts structured threat from unstructured news with confidence scoring."""
     pipeline_id = state.get("pipeline_run_id", "unknown")
     logger.info(f"[market_intel] Pipeline {pipeline_id}: Starting threat extraction")
-    
+
     raw_news = state.get("raw_news", "")
     if not raw_news or not raw_news.strip():
-        logger.warning(f"[market_intel] Pipeline {pipeline_id}: Empty news text received")
-        return {"error": "No news text provided to analyze."}
-    
+        logger.warning(f"[market_intel] Pipeline {pipeline_id}: Empty news text")
+        return {"error": "No news text provided.", "is_supply_chain_relevant": False}
+
     llm = get_llm("market_intel")
-    
-    # Mock LLM handling
+
     if hasattr(llm, '_llm_type') and llm._llm_type == "fake-mock-llm":
-        mock_result = {
-            "event_type": "flood",
+        mock = {
+            "is_supply_chain_relevant": True,
+            "confidence_score": 90,
+            "event_type": "flood_regional_severe",
             "region": "North",
             "severity": "CRITICAL",
-            "estimated_delay_days": 5,
+            "estimated_delay_days": 15,
             "affected_commodities": ["wheat", "sugar"],
-            "summary": "Mock extraction of severe flooding in the North."
+            "key_location": "Delhi/NCR",
+            "summary": "Mock: Severe flooding in North halting freight transport."
         }
-        validated = validate_threat_payload(mock_result)
-        logger.info(f"[market_intel] Pipeline {pipeline_id}: Mock mode — returning mock payload")
-        return {"threat_payload": validated}
-    
+        validated = validate_threat_payload(mock)
+        return {"threat_payload": validated, "confidence_score": 90, "is_supply_chain_relevant": True}
+
     try:
         prompt_text = MARKET_INTEL_PROMPT.format(raw_news=raw_news)
-        
-        # Use retry utility for robustness
         content = invoke_llm_with_retry(
-            llm=llm,
-            prompt_text=prompt_text,
-            max_retries=2,
-            pipeline_run_id=pipeline_id,
-            agent_name="market_intel",
+            llm=llm, prompt_text=prompt_text, max_retries=2,
+            pipeline_run_id=pipeline_id, agent_name="market_intel",
         )
-        
+
         if content is None:
-            logger.error(f"[market_intel] Pipeline {pipeline_id}: LLM returned no content after retries")
-            return {"error": "Market Intel LLM failed to respond after retries."}
-        
-        # Parse JSON from LLM response
+            return {"error": "Market Intel LLM failed after retries.", "is_supply_chain_relevant": False}
+
         result = parse_llm_json(content)
-        
         if not isinstance(result, dict):
-            logger.warning(f"[market_intel] Pipeline {pipeline_id}: LLM returned non-dict: {type(result)}")
             result = {}
-        
-        # Validate against strict schema
+
+        # Check relevance first
+        is_relevant = result.get("is_supply_chain_relevant", True)
+        confidence = int(result.get("confidence_score", 70))
+
+        if not is_relevant or confidence < 20:
+            logger.info(f"[market_intel] Pipeline {pipeline_id}: Article NOT relevant (confidence={confidence}). Aborting pipeline.")
+            return {
+                "is_supply_chain_relevant": False,
+                "confidence_score": confidence,
+                "threat_payload": None,
+            }
+
         validated = validate_threat_payload(result)
-        
+
         logger.info(
             f"[market_intel] Pipeline {pipeline_id}: Threat extracted — "
-            f"{validated['event_type']} in {validated['region']} ({validated['severity']})"
+            f"{validated['event_type']} in {validated['region']} "
+            f"({validated['severity']}, confidence={confidence}%)"
         )
-        return {"threat_payload": validated}
-        
+        return {
+            "threat_payload": validated,
+            "confidence_score": confidence,
+            "is_supply_chain_relevant": True,
+        }
+
     except Exception as e:
         logger.error(f"[market_intel] Pipeline {pipeline_id}: Error — {e}")
-        return {"error": f"Market Intel failed: {str(e)}"}
+        return {"error": f"Market Intel failed: {str(e)}", "is_supply_chain_relevant": False}

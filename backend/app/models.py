@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Numeric, Boolean, ForeignKey, DateTime, Date, Text
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -29,6 +29,8 @@ class SupplierMaterial(Base):
     material_id = Column(Integer, ForeignKey("raw_materials.material_id"))
     unit_price = Column(Numeric(10, 2), nullable=False)
     is_primary = Column(Boolean, default=False)
+    min_order_qty = Column(Numeric(10, 2), default=0)        # Minimum order quantity (MOQ)
+    max_supply_capacity = Column(Numeric(10, 2), default=999999)  # Max units supplier can deliver
 
 class ProductBOM(Base):
     __tablename__ = "products_bom"
@@ -44,9 +46,10 @@ class DisruptionLog(Base):
     source_event = Column(String(255), nullable=False)
     affected_material_id = Column(Integer, ForeignKey("raw_materials.material_id"))
     severity_level = Column(String(20))
-    action_taken = Column(String)
+    action_taken = Column(Text)
     status = Column(String(50), default="PROCESSED")
-    pipeline_run_id = Column(String(50), nullable=True)  # Links to the pipeline run that created this
+    pipeline_run_id = Column(String(50), nullable=True)
+    is_test = Column(Boolean, default=False)             # True if triggered from test mode
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
@@ -57,7 +60,8 @@ class PurchaseOrder(Base):
     total_cost = Column(Numeric(12, 2), nullable=False)
     status = Column(String(50), default="ISSUED")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    pipeline_run_id = Column(String(50), nullable=True)  # Links to the pipeline run that created this
+    pipeline_run_id = Column(String(50), nullable=True)
+    is_test = Column(Boolean, default=False)             # True if triggered from test mode
 
 class Factory(Base):
     __tablename__ = "factories"
@@ -76,8 +80,8 @@ class TransportRoute(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False)
     factory_id = Column(Integer, ForeignKey("factories.factory_id"), nullable=False)
     route_name = Column(String(100), nullable=False)
-    key_highways = Column(String(255)) # Comma separated list of highways
-    key_cities_passed = Column(String(255)) # Comma separated list of cities
+    key_highways = Column(String(255))
+    key_cities_passed = Column(String(255))
     distance_km = Column(Integer)
     normal_transit_hours = Column(Integer, nullable=False)
 
@@ -86,16 +90,67 @@ class DeliverySchedule(Base):
     schedule_id = Column(Integer, primary_key=True, index=True)
     route_id = Column(Integer, ForeignKey("transport_routes.route_id"), nullable=False)
     material_id = Column(Integer, ForeignKey("raw_materials.material_id"), nullable=False)
-    delivery_day = Column(String(20), nullable=False) # e.g. "Monday", "Daily"
-    expected_departure_time = Column(String(10), nullable=False) # e.g. "08:00"
-    expected_arrival_time = Column(String(10), nullable=False) # e.g. "14:00"
+    delivery_day = Column(String(20), nullable=False)
+    expected_departure_time = Column(String(10), nullable=False)
+    expected_arrival_time = Column(String(10), nullable=False)
 
 class VendorCommunication(Base):
     __tablename__ = "vendor_communications"
     comm_id = Column(Integer, primary_key=True, index=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False)
-    communication_type = Column(String(50), nullable=False) # 'early_dispatch_request', 'emergency_po'
+    communication_type = Column(String(50), nullable=False)
     subject = Column(String(255), nullable=False)
-    body = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
     sent_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(50), default="SENT")
+
+# ─── NEW: Event-Level Deduplication ───
+class ActiveDisruption(Base):
+    """
+    Tracks real-world disruption events (not articles) to prevent the same
+    event from triggering multiple pipelines when multiple articles cover it.
+    
+    Fingerprint = SHA256(region + event_type + date)
+    """
+    __tablename__ = "active_disruptions"
+    disruption_id = Column(Integer, primary_key=True, index=True)
+    fingerprint = Column(String(64), unique=True, nullable=False, index=True)
+    region = Column(String(100), nullable=False)
+    event_type = Column(String(50), nullable=False)
+    event_date = Column(Date, nullable=False)
+    status = Column(String(20), default="ACTIVE")        # ACTIVE, RESOLVED
+    action_taken = Column(Text, nullable=True)
+    pipeline_run_id = Column(String(50), nullable=True)
+    confidence_score = Column(Integer, default=80)
+    detected_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    is_test = Column(Boolean, default=False)
+
+# ─── NEW: Human Approval Queue ───
+class ApprovalQueue(Base):
+    """
+    Holds POs that require human approval before being placed.
+    Triggered when: total_cost > MAX_AUTO_PO_COST OR confidence_score < 60.
+    """
+    __tablename__ = "approval_queue"
+    approval_id = Column(Integer, primary_key=True, index=True)
+    pipeline_run_id = Column(String(50), nullable=True)
+    material_id = Column(Integer, ForeignKey("raw_materials.material_id"), nullable=False)
+    material_name = Column(String(100), nullable=False)
+    recommended_action = Column(String(50), nullable=False)       # EXECUTE_BACKUP_PO
+    backup_supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=True)
+    backup_supplier_name = Column(String(100), nullable=True)
+    order_quantity = Column(Numeric(10, 2), nullable=False)
+    total_cost = Column(Numeric(12, 2), nullable=False)
+    trigger_reason = Column(String(50), nullable=False)           # COST_CEILING, LOW_CONFIDENCE
+    confidence_score = Column(Integer, nullable=True)
+    rationale = Column(Text, nullable=False)
+    risk_reasoning = Column(Text, nullable=True)
+    threat_summary = Column(Text, nullable=True)
+    severity = Column(String(20), nullable=True)
+    status = Column(String(20), default="PENDING")                # PENDING, APPROVED, REJECTED
+    reviewed_by = Column(String(100), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    review_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_test = Column(Boolean, default=False)

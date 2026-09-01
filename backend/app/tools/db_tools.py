@@ -9,10 +9,10 @@ Provides:
 """
 from app.database import SyncSessionLocal
 from app.models import (
-    Supplier, RawMaterial, SupplierMaterial, DisruptionLog, 
+    Supplier, RawMaterial, SupplierMaterial, DisruptionLog,
     PurchaseOrder, Factory, TransportRoute, DeliverySchedule, ProductBOM,
+    ApprovalQueue,
 )
-from sqlalchemy.orm import joinedload
 from sqlalchemy import and_
 from datetime import datetime, timedelta
 import logging
@@ -314,13 +314,14 @@ def check_existing_po(material_id: int, hours: int = 24) -> dict:
 
 
 def create_purchase_order(
-    material_id: int, 
-    supplier_id: int, 
-    quantity: float, 
+    material_id: int,
+    supplier_id: int,
+    quantity: float,
     total_cost: float,
     pipeline_run_id: str = None,
+    is_test: bool = False,
 ):
-    """Creates a purchase order with pipeline tracking."""
+    """Creates a purchase order with pipeline tracking and test-mode support."""
     with SyncSessionLocal() as session:
         po = PurchaseOrder(
             material_id=material_id,
@@ -329,22 +330,27 @@ def create_purchase_order(
             total_cost=total_cost,
             status="ISSUED",
             pipeline_run_id=pipeline_run_id,
+            is_test=is_test,
         )
         session.add(po)
         session.commit()
         session.refresh(po)
-        logger.info(f"[db_tools] Created PO #{po.po_id} for material {material_id} from supplier {supplier_id}")
+        logger.info(
+            f"[db_tools] Created PO #{po.po_id} for material {material_id} "
+            f"from supplier {supplier_id} {'[TEST]' if is_test else ''}"
+        )
         return {"po_id": po.po_id, "status": "ISSUED"}
 
 
 def log_disruption(
-    source_event: str, 
-    material_id: int, 
-    severity: str, 
+    source_event: str,
+    material_id: int,
+    severity: str,
     action_taken: str,
     pipeline_run_id: str = None,
+    is_test: bool = False,
 ):
-    """Logs a disruption event with pipeline tracking."""
+    """Logs a disruption event with pipeline tracking and test-mode support."""
     with SyncSessionLocal() as session:
         log = DisruptionLog(
             source_event=source_event,
@@ -352,11 +358,156 @@ def log_disruption(
             severity_level=severity,
             action_taken=action_taken,
             pipeline_run_id=pipeline_run_id,
+            is_test=is_test,
         )
         session.add(log)
         session.commit()
         session.refresh(log)
         return {"log_id": log.log_id}
+
+
+# ═══════════════════════════════════════════════════════════
+#  APPROVAL QUEUE OPERATIONS
+# ═══════════════════════════════════════════════════════════
+
+def create_approval_queue_item(
+    pipeline_run_id: str,
+    material_id: int,
+    material_name: str,
+    recommended_action: str,
+    backup_supplier_id: int,
+    backup_supplier_name: str,
+    order_quantity: float,
+    total_cost: float,
+    trigger_reason: str,
+    confidence_score: int,
+    rationale: str,
+    risk_reasoning: str,
+    threat_summary: str,
+    severity: str,
+    is_test: bool = False,
+) -> dict:
+    """Inserts a new item into the human approval queue."""
+    with SyncSessionLocal() as session:
+        item = ApprovalQueue(
+            pipeline_run_id=pipeline_run_id,
+            material_id=material_id,
+            material_name=material_name,
+            recommended_action=recommended_action,
+            backup_supplier_id=backup_supplier_id,
+            backup_supplier_name=backup_supplier_name,
+            order_quantity=order_quantity,
+            total_cost=total_cost,
+            trigger_reason=trigger_reason,
+            confidence_score=confidence_score,
+            rationale=rationale,
+            risk_reasoning=risk_reasoning,
+            threat_summary=threat_summary,
+            severity=severity,
+            status="PENDING",
+            is_test=is_test,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        logger.info(
+            f"[db_tools] Approval queue item #{item.approval_id} created for {material_name} "
+            f"(reason: {trigger_reason}, cost: {total_cost:,.0f})"
+        )
+        return {"approval_id": item.approval_id, "status": "PENDING"}
+
+
+def get_approval_queue(status_filter: str = None, include_test: bool = False) -> list:
+    """Returns approval queue items, optionally filtered by status."""
+    with SyncSessionLocal() as session:
+        query = session.query(ApprovalQueue)
+        if status_filter:
+            query = query.filter(ApprovalQueue.status == status_filter)
+        if not include_test:
+            query = query.filter(ApprovalQueue.is_test == False)
+        items = query.order_by(ApprovalQueue.created_at.desc()).all()
+        return [
+            {
+                "approval_id": i.approval_id,
+                "pipeline_run_id": i.pipeline_run_id,
+                "material_id": i.material_id,
+                "material_name": i.material_name,
+                "recommended_action": i.recommended_action,
+                "backup_supplier_id": i.backup_supplier_id,
+                "backup_supplier_name": i.backup_supplier_name,
+                "order_quantity": float(i.order_quantity),
+                "total_cost": float(i.total_cost),
+                "trigger_reason": i.trigger_reason,
+                "confidence_score": i.confidence_score,
+                "rationale": i.rationale,
+                "risk_reasoning": i.risk_reasoning,
+                "threat_summary": i.threat_summary,
+                "severity": i.severity,
+                "status": i.status,
+                "reviewed_by": i.reviewed_by,
+                "reviewed_at": i.reviewed_at.isoformat() if i.reviewed_at else None,
+                "review_notes": i.review_notes,
+                "created_at": i.created_at.isoformat() if i.created_at else None,
+            }
+            for i in items
+        ]
+
+
+def process_approval(approval_id: int, decision: str, reviewed_by: str, review_notes: str = "") -> dict:
+    """
+    Processes a human approval decision.
+    - APPROVED: creates the purchase order in the database
+    - REJECTED: marks the item as rejected with notes
+    """
+    valid_decisions = {"APPROVED", "REJECTED"}
+    if decision not in valid_decisions:
+        raise ValueError(f"Invalid decision '{decision}'. Must be APPROVED or REJECTED.")
+
+    with SyncSessionLocal() as session:
+        item = session.query(ApprovalQueue).filter(ApprovalQueue.approval_id == approval_id).first()
+        if not item:
+            raise ValueError(f"Approval item #{approval_id} not found")
+        if item.status != "PENDING":
+            raise ValueError(f"Approval item #{approval_id} is already {item.status}")
+
+        item.status = decision
+        item.reviewed_by = reviewed_by
+        item.reviewed_at = datetime.utcnow()
+        item.review_notes = review_notes
+        session.commit()
+
+        po_id = None
+        if decision == "APPROVED" and item.backup_supplier_id:
+            # Create the purchase order now that human has approved
+            po = PurchaseOrder(
+                material_id=item.material_id,
+                supplier_id=item.backup_supplier_id,
+                order_quantity=item.order_quantity,
+                total_cost=item.total_cost,
+                status="ISSUED",
+                pipeline_run_id=item.pipeline_run_id,
+                is_test=item.is_test,
+            )
+            session.add(po)
+            session.commit()
+            session.refresh(po)
+            po_id = po.po_id
+            logger.info(
+                f"[db_tools] Approval #{approval_id} APPROVED by {reviewed_by}. "
+                f"PO #{po_id} created for {item.material_name}."
+            )
+        else:
+            logger.info(
+                f"[db_tools] Approval #{approval_id} REJECTED by {reviewed_by}. "
+                f"Reason: {review_notes}"
+            )
+
+        return {
+            "approval_id": approval_id,
+            "decision": decision,
+            "po_id": po_id,
+            "reviewed_by": reviewed_by,
+        }
 
 
 # ═══════════════════════════════════════════════════════════

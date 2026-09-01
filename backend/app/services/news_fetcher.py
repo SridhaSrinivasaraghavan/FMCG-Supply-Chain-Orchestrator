@@ -94,9 +94,11 @@ class GoogleNewsRSSFetcher:
 
     @staticmethod
     def fetch(keywords: List[str], max_articles: int = 10) -> List[FetchedArticle]:
+        from urllib.parse import quote_plus
         query = " OR ".join(keywords)
+        encoded_query = quote_plus(query)  # Fix: encode spaces and special chars in URL
         try:
-            feed = feedparser.parse(f"{GoogleNewsRSSFetcher.BASE_URL}?q={query}&hl=en-US&gl=US&ceid=US:en")
+            feed = feedparser.parse(f"{GoogleNewsRSSFetcher.BASE_URL}?q={encoded_query}&hl=en-US&gl=US&ceid=US:en")
             articles = []
             for entry in feed.entries[:max_articles]:
                 articles.append(

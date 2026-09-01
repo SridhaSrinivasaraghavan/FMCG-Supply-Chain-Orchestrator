@@ -3,8 +3,8 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # LLM Configuration
-    LLM_PROVIDER: str = "mock"  # 'ollama', 'openai', 'groq', 'mock'
-    LLM_MODEL: str = "fake"
+    LLM_PROVIDER: str = "ollama"  # 'ollama', 'openai', 'groq', 'mock'
+    LLM_MODEL: str = "llama3.2"
     LLM_TEMPERATURE: float = 0.0
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OPENAI_API_KEY: Optional[str] = None

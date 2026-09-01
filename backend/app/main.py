@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import get_db, async_engine, Base
 from app.models import RawMaterial, Supplier, DisruptionLog, PurchaseOrder, TransportRoute, DeliverySchedule, VendorCommunication
 from app.schemas import (
-    DisruptionInput, MaterialInventoryResponse, DisruptionLogResponse, 
+    DisruptionInput, MaterialInventoryResponse, DisruptionLogResponse,
     PurchaseOrderResponse, SupplierResponse, TransportRouteResponse,
     DeliveryScheduleResponse, VendorCommunicationResponse,
     UpdatePOStatusRequest, UpdateInventoryRequest, UpdateSupplierReliabilityRequest,
@@ -17,7 +17,8 @@ from app.schemas import (
 )
 from app.services.news_fetcher import UnifiedNewsFetcher
 from app.services.scheduler import start_scheduler, stop_scheduler, get_latest_scan, trigger_manual_scan
-from app.tools.db_tools import update_po_status, update_inventory_stock, update_supplier_reliability
+from app.services.event_dedup import is_event_already_handled, get_all_active_disruptions, resolve_disruption
+from app.tools.db_tools import update_po_status, update_inventory_stock, update_supplier_reliability, get_approval_queue, process_approval
 from app.agents.graph import app_graph
 
 import json
@@ -25,11 +26,11 @@ import asyncio
 import uuid
 import logging
 from datetime import datetime
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Semaphore to prevent concurrent pipeline executions (max 2 simultaneous)
 _pipeline_semaphore = asyncio.Semaphore(2)
 
 
@@ -221,40 +222,41 @@ async def simulate_news():
 
 
 @app.post("/api/trigger-disruption")
-async def trigger_disruption(payload: DisruptionInput):
+async def trigger_disruption(payload: DisruptionInput, test_mode: bool = Query(False, description="Bypass all dedup checks — marks writes as test data")):
     """
     Kicks off the LangGraph autonomous multi-agent pipeline.
-    This is the MANUAL trigger — user provides the news text directly.
     
-    Uses asyncio.to_thread() to prevent blocking the event loop,
-    and a semaphore to limit concurrent pipeline executions.
+    Set ?test_mode=true to bypass all dedup checks for testing (writes tagged as test data).
     """
     pipeline_run_id = str(uuid.uuid4())[:12]
-    
+
     initial_state = {
         "raw_news": payload.news_text,
         "auto_triggered": False,
         "pipeline_run_id": pipeline_run_id,
         "started_at": datetime.utcnow().isoformat(),
+        "is_test": test_mode,
         "messages": [],
     }
 
-    logger.info(f"Pipeline {pipeline_run_id}: Triggering with news: {payload.news_text[:80]}...")
+    logger.info(f"Pipeline {pipeline_run_id}: Triggering {'[TEST MODE] ' if test_mode else ''}with news: {payload.news_text[:80]}...")
 
     try:
-        # Acquire semaphore to prevent too many concurrent pipelines
         async with _pipeline_semaphore:
-            # Run the synchronous LangGraph in a thread to avoid blocking the event loop
             final_state = await asyncio.to_thread(app_graph.invoke, initial_state)
 
         return {
             "status": "success",
             "pipeline_run_id": pipeline_run_id,
+            "test_mode": test_mode,
             "threat_assessed": final_state.get("threat_payload"),
+            "confidence_score": final_state.get("confidence_score"),
+            "is_supply_chain_relevant": final_state.get("is_supply_chain_relevant"),
             "impacted_materials": final_state.get("impacted_materials", []),
             "risk_reasoning": final_state.get("risk_reasoning"),
             "risk_level": final_state.get("risk_level"),
             "financial_analysis": final_state.get("financial_analysis", []),
+            "approval_items": final_state.get("approval_items", []),
             "actions_taken": final_state.get("recommended_actions", []),
             "executive_summary": final_state.get("executive_summary"),
             "errors": final_state.get("error"),
@@ -265,52 +267,110 @@ async def trigger_disruption(payload: DisruptionInput):
 
 
 @app.post("/api/stream-disruption")
-async def stream_disruption(payload: DisruptionInput):
-    """
-    Kicks off the LangGraph pipeline and streams the output of each agent live 
-    using Server-Sent Events (SSE).
-    """
+async def stream_disruption(payload: DisruptionInput, test_mode: bool = Query(False)):
+    """Streams pipeline agent output via SSE. Set ?test_mode=true to bypass dedup."""
     pipeline_run_id = str(uuid.uuid4())[:12]
-    
+
     initial_state = {
         "raw_news": payload.news_text,
         "auto_triggered": False,
         "pipeline_run_id": pipeline_run_id,
         "started_at": datetime.utcnow().isoformat(),
+        "is_test": test_mode,
         "messages": [],
     }
 
     async def event_generator():
         try:
-            # Send pipeline metadata first
-            yield f"data: {json.dumps({'agent': 'pipeline_start', 'data': {'pipeline_run_id': pipeline_run_id}})}\n\n"
-            
-            # Run LangGraph stream in a thread to avoid blocking
+            yield f"data: {json.dumps({'agent': 'pipeline_start', 'data': {'pipeline_run_id': pipeline_run_id, 'test_mode': test_mode}})}\n\n"
+
             def run_stream():
                 results = []
                 for output in app_graph.stream(initial_state):
                     results.append(output)
                 return results
-            
+
             async with _pipeline_semaphore:
                 stream_results = await asyncio.to_thread(run_stream)
-            
+
             for output in stream_results:
                 for node_name, state_update in output.items():
                     event_data = {
                         "agent": node_name,
                         "data": state_update,
                         "pipeline_run_id": pipeline_run_id,
+                        "test_mode": test_mode,
                     }
                     yield f"data: {json.dumps(event_data)}\n\n"
                     await asyncio.sleep(0.3)
-                    
+
             yield f"data: {json.dumps({'agent': 'done', 'data': {'pipeline_run_id': pipeline_run_id}})}\n\n"
         except Exception as e:
             logger.error(f"Pipeline {pipeline_run_id}: Streaming error — {e}")
             yield f"data: {json.dumps({'agent': 'error', 'error': str(e), 'pipeline_run_id': pipeline_run_id})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ──────────────────────── Human Approval Queue ────────────────────────
+
+@app.get("/api/approvals")
+async def get_approvals(status: str = Query(None, description="Filter by status: PENDING, APPROVED, REJECTED")):
+    """Returns all items in the human approval queue."""
+    try:
+        items = get_approval_queue(status_filter=status)
+        return items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ApprovalDecisionRequest(BaseModel):
+    decision: str       # APPROVED or REJECTED
+    reviewed_by: str    # Admin name or ID
+    review_notes: str = ""
+
+
+@app.patch("/api/approvals/{approval_id}")
+async def decide_approval(approval_id: int, request: ApprovalDecisionRequest):
+    """
+    Admin approves or rejects a pending PO.
+    - APPROVED: Creates the PO in purchase_orders table and notifies supplier.
+    - REJECTED: Logs the rejection reason.
+    """
+    try:
+        result = process_approval(
+            approval_id=approval_id,
+            decision=request.decision,
+            reviewed_by=request.reviewed_by,
+            review_notes=request.review_notes,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────── Active Disruptions ────────────────────────
+
+@app.get("/api/active-disruptions")
+async def get_active_disruptions():
+    """Returns all currently active disruption events being tracked."""
+    try:
+        return get_all_active_disruptions(include_test=False)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/active-disruptions/{disruption_id}/resolve")
+async def resolve_active_disruption(disruption_id: int):
+    """Marks an active disruption as resolved, lifting dedup blocks for future events."""
+    try:
+        return resolve_disruption(disruption_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ──────────────────────── Auto-Scan Endpoints ────────────────────────

@@ -83,7 +83,8 @@ Output ONLY valid JSON — no markdown, no explanation:
   "estimated_delay_days": 14,
   "affected_commodities": ["wheat", "flour"],
   "key_location": "Delhi-Meerut highway near Ghaziabad",
-  "summary": "Severe monsoon flooding in North region blocks NH58 and NH24, halting freight for an estimated 2 weeks."
+  "summary": "Severe monsoon flooding in North region blocks NH58 and NH24, halting freight for an estimated 2 weeks.",
+  "reasoning": "The article mentions severe flooding on NH58 and NH24 (North region). Based on the delay table, flood_regional_severe causes a 14-day delay, mapping to HIGH severity."
 }}
 
 Valid event_type values: road_accident_minor, road_accident_major, road_bridge_closure, flood_localized, flood_regional_severe, fire_warehouse, fire_factory, port_strike, rail_strike, highway_blockade, earthquake_moderate, earthquake_severe, chemical_spill_road, chemical_spill_facility, cyclone_severe_weather, dense_fog_highway, crop_failure_shortage, customs_regulatory_delay, transport_disruption, other
@@ -117,7 +118,8 @@ def market_intel_node(state: AgentState):
             "estimated_delay_days": 15,
             "affected_commodities": ["wheat", "sugar"],
             "key_location": "Delhi/NCR",
-            "summary": "Mock: Severe flooding in North halting freight transport."
+            "summary": "Mock: Severe flooding in North halting freight transport.",
+            "reasoning": "Mock reasoning for severity and delay based on flood_regional_severe."
         }
         validated = validate_threat_payload(mock)
         return {"threat_payload": validated, "confidence_score": 90, "is_supply_chain_relevant": True}

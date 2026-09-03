@@ -378,6 +378,7 @@ def log_disruption(
     pipeline_run_id: str = None,
     is_test: bool = False,
     disruption_type: str = "OTHER",
+    detailed_reasoning: str = None,
 ):
     """Logs a disruption event with pipeline tracking and test-mode support."""
     with SyncSessionLocal() as session:
@@ -389,6 +390,7 @@ def log_disruption(
             action_taken=action_taken,
             pipeline_run_id=pipeline_run_id,
             is_test=is_test,
+            detailed_reasoning=detailed_reasoning,
         )
         session.add(log)
         session.commit()
@@ -416,6 +418,7 @@ def create_approval_queue_item(
     threat_summary: str,
     severity: str,
     is_test: bool = False,
+    market_intel_reasoning: str = None,
 ) -> dict:
     """Inserts a new item into the human approval queue, skipping if a duplicate is already pending."""
     with SyncSessionLocal() as session:
@@ -446,6 +449,7 @@ def create_approval_queue_item(
             severity=severity,
             status="PENDING",
             is_test=is_test,
+            market_intel_reasoning=market_intel_reasoning,
         )
         session.add(item)
         session.commit()
@@ -488,6 +492,8 @@ def get_approval_queue(status_filter: str = None, include_test: bool = False) ->
                 "reviewed_at": i.reviewed_at.isoformat() if i.reviewed_at else None,
                 "review_notes": i.review_notes,
                 "created_at": i.created_at.isoformat() if i.created_at else None,
+                "is_test": i.is_test,
+                "market_intel_reasoning": i.market_intel_reasoning,
             }
             for i in items
         ]

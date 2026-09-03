@@ -143,6 +143,7 @@ class ThreatPayload(BaseModel):
     demand_change_percent: float = Field(0.0, description="Positive for demand increase, negative for decrease")
     duration_days: Optional[int] = Field(None, ge=0)
     summary: str = Field(..., description="Short structured summary of the disruption")
+    reasoning: str = Field("No reasoning provided.", description="Step-by-step reasoning for the assigned severity and delay")
     confidence_score: float = Field(100.0, ge=0.0, le=100.0)
 
 
@@ -531,6 +532,7 @@ class DisruptionLogResponse(BaseModel):
     estimated_avoided_loss: float = 0.0
     pipeline_run_id: Optional[str] = None
     is_test: bool = False
+    detailed_reasoning: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -578,6 +580,7 @@ class ApprovalQueueResponse(BaseModel):
     review_notes: Optional[str] = None
     created_at: datetime
     is_test: bool
+    market_intel_reasoning: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

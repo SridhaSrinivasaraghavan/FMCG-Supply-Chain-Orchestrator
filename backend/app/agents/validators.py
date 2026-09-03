@@ -43,6 +43,25 @@ def validate_threat_payload(data: dict) -> dict:
             val = data["severity"].upper().strip()
             data["severity"] = mapping.get(val, val)
             
+        if "affected_commodities" in data and "affected_materials" not in data:
+            data["affected_materials"] = data.get("affected_commodities", [])
+            
+        # Safely map event_type if it doesn't match the enum
+        valid_enum_values = {e.value for e in DisruptionTypeEnum}
+        if "event_type" in data and data["event_type"] not in valid_enum_values:
+            # Try to uppercase it, if it's still not valid, use OTHER or SUPPLIER_FAILURE
+            upper_val = str(data["event_type"]).upper()
+            if upper_val in valid_enum_values:
+                data["event_type"] = upper_val
+            elif "FIRE" in upper_val or "STRIKE" in upper_val:
+                data["event_type"] = "SUPPLIER_FAILURE"
+            elif "FLOOD" in upper_val or "WEATHER" in upper_val:
+                data["event_type"] = "FLOOD"
+            elif "ROAD" in upper_val or "BLOCK" in upper_val or "ACCIDENT" in upper_val:
+                data["event_type"] = "ROUTE_BLOCKAGE"
+            else:
+                data["event_type"] = "TRANSPORT_DELAY"
+            
         validated = ThreatPayload(**data)
         logger.info(f"[VALIDATOR] Threat payload validated: {validated.event_type} in {validated.region} ({validated.severity})")
         return validated.model_dump()
@@ -63,6 +82,7 @@ def validate_threat_payload(data: dict) -> dict:
             "demand_change_percent": 0.0,
             "duration_days": None,
             "summary": data.get("summary", "No summary provided."),
+            "reasoning": data.get("reasoning", "No reasoning provided."),
             "confidence_score": data.get("confidence_score", 1.0)
         }
 

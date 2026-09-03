@@ -162,6 +162,7 @@ class DisruptionLog(Base):
     estimated_avoided_loss = Column(Float, default=0.0)
     pipeline_run_id = Column(String(50), nullable=True)
     is_test = Column(Boolean, default=False)
+    detailed_reasoning = Column(Text, nullable=True)
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
@@ -203,6 +204,7 @@ class ApprovalQueue(Base):
     review_notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_test = Column(Boolean, default=False)
+    market_intel_reasoning = Column(Text, nullable=True)
 
 class VendorCommunication(Base):
     __tablename__ = "vendor_communications"

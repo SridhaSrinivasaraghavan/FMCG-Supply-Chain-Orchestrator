@@ -329,6 +329,7 @@ elif page == "🚨 Disruption Console":
                             <p><b>Location:</b> {loc} ({reg})</p>
                             <p><b>Affected Commodities:</b> {comms}</p>
                             <p><i>"{summary}"</i></p>
+                            <p><b>Reasoning:</b> {payload.get('reasoning', 'No reasoning provided.')}</p>
                         </div>
                     </div>
                     """
@@ -400,7 +401,31 @@ elif page == "🚨 Disruption Console":
                         trigger = item.get("trigger_reason", "UNKNOWN")
                         reason_label = "💰 Cost ceiling exceeded" if trigger == "COST_CEILING" else f"⚠️ Low confidence ({item.get('confidence_score')}%)"
                         body_html += f"<h4 style='margin-bottom:8px; color:#111827;'>{item.get('material_name', '?')} <span class='status-badge' style='background:#fef9c3;color:#854d0e;'>🟡 SENT TO APPROVAL QUEUE</span></h4>"
-                        body_html += f"<p><b>Reason:</b> {reason_label}<br><b>Proposed Cost:</b> ₹{item.get('total_cost', 0):,.2f}</p>"
+                        
+                        best_alt = item.get("best_alternate") or {}
+                        days_rem = item.get("days_remaining", 0)
+                        delay = item.get("delay_days", 0)
+                        idle_cost = item.get("factory_idle_cost", 0)
+                        total_cost = item.get("total_cost", 0)
+                        order_qty = item.get("order_qty", 0)
+                        
+                        table_html = "<table class='rich-table'>"
+                        table_html += f"<tr><td>📅 Stock Remaining</td><td>{days_rem:.1f} days</td></tr>"
+                        table_html += f"<tr><td>⏱️ Estimated Delay</td><td>{delay} days</td></tr>"
+                        table_html += f"<tr><td>🏭 Factory Idle Cost</td><td>₹{idle_cost:,.0f}</td></tr>"
+                        table_html += f"<tr><td>🏢 Primary Supplier</td><td>{item.get('primary_supplier_name', 'Unknown')}</td></tr>"
+                        
+                        if best_alt:
+                            cap_note = " <span style='color:#ef4444;'>(capacity capped)</span>" if best_alt.get("capacity_capped") else ""
+                            table_html += f"<tr><td>🔀 Backup Supplier</td><td>{best_alt.get('supplier_name', 'N/A')}</td></tr>"
+                            table_html += f"<tr><td>📦 Order Quantity</td><td>{order_qty:,.1f} units{cap_note}</td></tr>"
+                            table_html += f"<tr><td>💰 Total Cost</td><td>₹{total_cost:,.2f}</td></tr>"
+                            table_html += f"<tr><td>⭐ Reliability</td><td>{best_alt.get('reliability_score', 0)*100:.0f}%</td></tr>"
+                        table_html += "</table>"
+                        
+                        body_html += table_html
+                        body_html += f"<p><b>Reason:</b> {reason_label}</p>"
+                        body_html += f"<p style='color:#4b5563;'><i>Rationale: {item.get('rationale', 'N/A')}</i></p>"
                         body_html += f"<p style='color:#6b7280;'><i>*A human admin must review and approve this PO.</i></p><hr style='border:none;border-top:1px dashed #e5e7eb;margin:20px 0;'>"
 
                     html = f"""
@@ -510,6 +535,10 @@ elif page == "🛡️ Admin Approvals":
 
                         st.markdown("**📰 What Happened (Threat Summary)**")
                         st.info(item.get("threat_summary", "No threat summary available."))
+
+                        if item.get("market_intel_reasoning"):
+                            st.markdown("**🕵️ Market Intel Reasoning**")
+                            st.write(item.get("market_intel_reasoning"))
 
                         st.markdown("**🗺️ Risk Analyst Reasoning**")
                         st.write(item.get("risk_reasoning", "No risk reasoning available."))
@@ -684,8 +713,12 @@ elif page == "📜 Disruption Logs":
                 st.markdown("**📰 Source Event**")
                 st.info(log.get("source_event", "N/A"))
                 
-                st.markdown("**⚡ Action Taken (Reasoning & Result)**")
+                st.markdown("**⚡ Action Taken (Result)**")
                 st.success(log.get("action_taken", "N/A"))
+                
+                if log.get("detailed_reasoning"):
+                    st.markdown("**🧠 Detailed Reasoning**")
+                    st.info(log.get("detailed_reasoning"))
                 
                 if log.get("estimated_cost") or log.get("estimated_avoided_loss"):
                     col1, col2 = st.columns(2)

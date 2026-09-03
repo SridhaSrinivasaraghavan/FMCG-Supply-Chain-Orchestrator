@@ -39,15 +39,16 @@ CFO_DECISION_PROMPT = PromptTemplate(
 
 ## INSTRUCTIONS:
 Our quantitative models have already computed the exact mathematically optimal decision for each impacted material to minimize Total Cost (Backup Premium + Factory Idle Cost). 
-Your ONLY job is to read these decisions and write a brief, professional CFO rationale explaining WHY this decision makes financial sense, citing the specific costs involved.
+Your ONLY job is to read these decisions and write a highly detailed, professional CFO rationale explaining exactly WHY this decision makes financial sense. You MUST explicitly cite the specific costs involved, the mathematical differences between the options (like backup premium vs. factory idle cost), and the total potential avoided losses.
 
-CRITICAL RULE: You are generating rationales for multiple different materials. You MUST ensure that the rationale for material A ONLY mentions material A. Do NOT copy the rationale from one material into another. Do NOT mention Cocoa Powder when discussing Palm Oil. Match the exact `material_name` provided in the input decisions.
+CRITICAL RULE 1: You MUST generate a rationale for EVERY SINGLE material provided in the input. Do NOT skip any materials. If the decision is PROACTIVE_ADVISORY or HOLD_AND_MONITOR because we have enough stock, explicitly explain that we avoid unnecessary backup costs because our current inventory covers the delay.
+CRITICAL RULE 2: You are generating rationales for multiple different materials. You MUST ensure that the rationale for material A ONLY mentions material A. Do NOT copy the rationale from one material into another. Do NOT mention Cocoa Powder when discussing Palm Oil. Match the exact `material_name` provided in the input decisions.
 
 Output ONLY a strict JSON array matching this format:
 [
   {{
     "material_id": 123,
-    "rationale": "<Write your brief 1-2 sentence rationale here>"
+    "rationale": "<Write your highly detailed, multi-sentence rationale here explaining all the math and logic>"
   }}
 ]
 """,

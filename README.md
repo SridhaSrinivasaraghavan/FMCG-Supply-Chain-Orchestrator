@@ -8,20 +8,81 @@ Built with **FastAPI** (Backend), **LangGraph** (Multi-Agent Orchestration), **P
 
 ## 🧠 The Multi-Agent Workflow Explained
 
-This system relies on a LangGraph state machine passing a central "State" object between four distinct AI agents. 
+The autonomous supply chain management system processes unstructured external data through a series of specialized LLM (Large Language Model) agents, cross-references findings with a relational database, and executes deterministic financial optimization before taking action.
 
-1. **Agent 1: Market Intel (The Scout)**
-   - **What it does:** Scans raw, unstructured text (news articles, tweets, weather reports) and uses an LLM to extract a highly structured JSON payload representing the threat (e.g., event type, region, severity, delay days).
-   - **Where it lives:** `backend/app/agents/market_intel.py`
-2. **Agent 2: Risk Assessment (The Analyst)**
-   - **What it does:** Takes the parsed threat and queries the PostgreSQL database to find out exactly what materials, routes, and suppliers are located in the affected region. It finds all available "Backup Suppliers" and formats this data.
-   - **Where it lives:** `backend/app/agents/risk_assessment.py`
-3. **Agent 3: Financial Analyst (The CFO)**
-   - **What it does:** The most complex agent. It first runs raw deterministic math: *How many days of stock do we have left? How much will it cost if the factory goes idle? How much is the premium to buy from a backup supplier?* It then uses an LLM to review these numbers against strict company policies (e.g., quality vs. cost trade-offs) and decides whether to `HOLD_AND_MONITOR`, issue a `PROACTIVE_ADVISORY`, or `EXECUTE_BACKUP_PO`.
-   - **Where it lives:** `backend/app/agents/financial_analyst.py`
-4. **Agent 4: Strategy Execution (The Doer)**
-   - **What it does:** Executes the CFO's decision. If an emergency PO is needed, it drafts the email, generates a PO record, and saves the logs to the database so the frontend can display it.
-   - **Where it lives:** `backend/app/agents/strategy_execution.py`
+### System Architecture Flowchart
+
+```mermaid
+flowchart TD
+    classDef process fill:#ffffff,stroke:#333333,stroke-width:2px,color:#000000
+    classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#000000
+    classDef db fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#000000
+    classDef action fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#000000
+    classDef human fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#000000
+
+    SCRAPER[News Scraper Module]:::process
+    
+    subgraph Pipeline [Multi-Agent AI Pipeline]
+        MIA[1. Market Intel Agent]:::agent
+        RAA[2. Risk Assessment Agent]:::agent
+        FAA[3. Financial Analyst Agent]:::agent
+        SEA[4. Strategy Execution Agent]:::agent
+    end
+
+    subgraph Data [Database & Logs]
+        DB[(Relational DB)]:::db
+        LOG[(Disruption Logs)]:::db
+    end
+
+    Q{Decision Routing}:::process
+    
+    AUTO_PO[Auto-Execute PO]:::action
+    ADV[Send Advisory]:::action
+    HOLD[Hold & Monitor]:::action
+    HUMAN[Approval Queue]:::human
+
+    SCRAPER -->|Raw News| MIA
+    
+    MIA -->|Threat| RAA
+    RAA -->|Impact| FAA
+    FAA -->|Optimization| Q
+    
+    DB -.->|Routes| RAA
+    DB -.->|Stock| FAA
+    
+    Q -->|High Stock| ADV
+    Q -->|Low Impact| HOLD
+    Q -->|Critical Stock| AUTO_PO
+    Q -->|Over Ceiling| HUMAN
+    
+    ADV --> SEA
+    HOLD --> SEA
+    AUTO_PO --> SEA
+    HUMAN -.->|Approval| SEA
+    
+    SEA --> LOG
+```
+
+### Workflow Execution
+
+The pipeline operates sequentially, ensuring that unstructured data is structurally validated and quantified before any action is executed. 
+
+**1. Ingestion & Market Intelligence Layer**
+The workflow initiates when the **News Scraper Module** continuously monitors online news sources, filtering articles via supply-chain-specific keywords. When a relevant article is scraped, it is passed to the **Market Intel Agent**. This agent parses the unstructured text, leveraging a predefined delay inference matrix to estimate logistical delays based on the event type. It outputs a strict JSON payload containing the event severity, geographic region, and an AI confidence score.
+
+**2. Network Risk Assessment Layer**
+The validated threat payload is passed to the **Risk Assessment Agent**. This agent queries the underlying relational database to retrieve active transport routes, supplier locations, and current shipments. By intersecting the geographic threat data with the physical supply chain map, the agent identifies specific raw materials that are currently traveling through or originating from the compromised region.
+
+**3. Financial Optimization Layer**
+With the at-risk materials identified, the **Financial Analyst (CFO) Agent** calculates the exact financial exposure. It queries the Bill of Materials (BOM) to determine daily factory consumption rates and compares them against current inventory buffer stocks. If the estimated delay exceeds the buffer stock, the agent calculates the **Factory Idle Cost** against the **Backup Premium**. The agent utilizes deterministic mathematical models to find the financially optimal decision, and then generates an explicit rationale explaining the logic.
+
+**4. Strategy Execution and Human-in-the-Loop**
+The decisions are routed based on predefined business parameters:
+- **Autonomous Execution:** If an emergency purchase order is financially optimal and falls below the maximum auto-approval cost ceiling (with high AI confidence), the **Strategy Execution Agent** immediately issues the Purchase Order (PO) to the backup supplier.
+- **Proactive Advisories:** If the factory has sufficient inventory to weather the delay, the system avoids unnecessary premium costs and instead autonomously emails suppliers to adjust dispatch schedules.
+- **Approval Queue (Human-in-the-loop):** If a proposed Purchase Order exceeds the financial ceiling, or if the initial Market Intel Agent reported a low confidence score, the action is safely halted. It is placed into an administrative **Approval Queue** where a human operator can review the compiled LLM reasonings, financial calculations, and proposed costs before manually approving or rejecting the order. 
+
+All actions, including the comprehensive reasoning generated by each agent at every step, are permanently stored in the **Disruption Logs** for auditing and transparency.
 
 ---
 

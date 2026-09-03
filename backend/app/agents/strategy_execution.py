@@ -84,13 +84,19 @@ def strategy_execution_node(state: AgentState):
         mat_id = analysis.get("material_id")
         mat_name = analysis.get("material_name", "Unknown")
 
+        detailed_reasoning = (
+            f"### Market Intel Reasoning\n{threat_payload.get('reasoning', 'N/A')}\n\n"
+            f"### Risk Assessment Reasoning\n{risk_reasoning}\n\n"
+            f"### Financial Rationale\n{analysis.get('rationale', 'N/A')}"
+        )
+
         if rec == "EXECUTE_BACKUP_PO":
-            action = _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test)
+            action = _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test, detailed_reasoning)
             if action:
                 actions_taken.append(action)
 
         elif rec == "PROACTIVE_ADVISORY":
-            action = _send_proactive_advisory(analysis, threat_payload, source_event, severity, pipeline_id)
+            action = _send_proactive_advisory(analysis, threat_payload, source_event, severity, pipeline_id, detailed_reasoning)
             if action:
                 actions_taken.append(action)
 
@@ -101,6 +107,7 @@ def strategy_execution_node(state: AgentState):
                 severity=severity, action_taken=desc,
                 pipeline_run_id=pipeline_id, is_test=is_test,
                 disruption_type=str(getattr(event_type, "value", event_type)),
+                detailed_reasoning=detailed_reasoning,
             )
             actions_taken.append({"material": mat_name, "action": desc, "status": "HELD"})
             logger.info(f"[strategy_execution] Pipeline {pipeline_id}: {mat_name} → HOLD_AND_MONITOR")
@@ -108,6 +115,7 @@ def strategy_execution_node(state: AgentState):
     # ── Queue items needing human approval ──
     approval_queue_results = []
     for item in approval_items:
+        item["market_intel_reasoning"] = threat_payload.get("reasoning", "")
         result = _queue_for_approval(item, pipeline_id, is_test)
         approval_queue_results.append(result)
         logger.info(
@@ -151,7 +159,7 @@ def strategy_execution_node(state: AgentState):
     }
 
 
-def _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test):
+def _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test, detailed_reasoning):
     mat_id = analysis["material_id"]
     mat_name = analysis.get("material_name", "Unknown")
     best_alt = analysis.get("best_alternate")
@@ -194,6 +202,7 @@ def _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test):
             severity=severity, action_taken=action_desc,
             pipeline_run_id=pipeline_id, is_test=is_test,
             disruption_type=str(getattr(analysis.get("event_type", "OTHER"), "value", analysis.get("event_type", "OTHER"))),
+            detailed_reasoning=detailed_reasoning,
         )
 
         supplier_email = get_supplier_email(best_alt["supplier_id"])
@@ -218,7 +227,7 @@ def _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test):
         return {"material": mat_name, "action": f"PO creation FAILED: {e}", "status": "ERROR"}
 
 
-def _send_proactive_advisory(analysis, threat_payload, source_event, severity, pipeline_id):
+def _send_proactive_advisory(analysis, threat_payload, source_event, severity, pipeline_id, detailed_reasoning):
     mat_id = analysis["material_id"]
     mat_name = analysis.get("material_name", "Unknown")
     primary_supplier_id = analysis.get("primary_supplier_id")
@@ -245,6 +254,7 @@ def _send_proactive_advisory(analysis, threat_payload, source_event, severity, p
             source_event=source_event, material_id=mat_id,
             severity=severity, action_taken=action_desc, pipeline_run_id=pipeline_id,
             disruption_type=str(getattr(threat_payload.get("event_type", "OTHER"), "value", threat_payload.get("event_type", "OTHER"))),
+            detailed_reasoning=detailed_reasoning,
         )
         logger.info(f"[strategy_execution] Pipeline {pipeline_id}: Advisory sent for {mat_name}")
         return {"material": mat_name, "action": action_desc, "status": "ADVISORY_SENT"}
@@ -275,6 +285,7 @@ def _queue_for_approval(item, pipeline_id, is_test):
             threat_summary=item.get("threat_summary", ""),
             severity=item.get("severity", "HIGH"),
             is_test=is_test,
+            market_intel_reasoning=item.get("market_intel_reasoning", ""),
         )
         return {
             "material": mat_name,

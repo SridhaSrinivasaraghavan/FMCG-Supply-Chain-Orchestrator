@@ -17,48 +17,32 @@ flowchart TD
     classDef process fill:#ffffff,stroke:#333333,stroke-width:2px,color:#000000
     classDef agent fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#000000
     classDef db fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#000000
-    classDef action fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#000000
-    classDef human fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#000000
 
     SCRAPER[News Scraper Module]:::process
+    MIA[1. Market Intel Agent]:::agent
+    RAA[2. Risk Assessment Agent]:::agent
+    DB[(Relational DB)]:::db
+    FAA[3. Financial Analyst Agent]:::agent
     
-    subgraph Pipeline [Multi-Agent AI Pipeline]
-        MIA[1. Market Intel Agent]:::agent
-        RAA[2. Risk Assessment Agent]:::agent
-        FAA[3. Financial Analyst Agent]:::agent
-        SEA[4. Strategy Execution Agent]:::agent
-    end
-
-    subgraph Data [Database & Logs]
-        DB[(Relational DB)]:::db
-        LOG[(Disruption Logs)]:::db
-    end
-
     Q{Decision Routing}:::process
     
-    AUTO_PO[Auto-Execute PO]:::action
-    ADV[Send Advisory]:::action
-    HOLD[Hold & Monitor]:::action
-    HUMAN[Approval Queue]:::human
+    ACTIONS[<b>Decision Outcomes:</b><br/>- Auto-Execute PO<br/>- Send Advisory<br/>- Hold & Monitor<br/>- Human Approval Queue]:::process
+
+    SEA[4. Strategy Execution Agent]:::agent
+    LOG[(Disruption Logs)]:::db
 
     SCRAPER -->|Raw News| MIA
+    MIA -->|Threat Payload| RAA
     
-    MIA -->|Threat| RAA
-    RAA -->|Impact| FAA
-    FAA -->|Optimization| Q
+    RAA -.->|Query Routes| DB
+    DB -.->|Stock & BOM| FAA
     
-    DB -.->|Routes| RAA
-    DB -.->|Stock| FAA
+    RAA -->|Impacted Materials| FAA
+    FAA -->|Financial Optimization| Q
     
-    Q -->|High Stock| ADV
-    Q -->|Low Impact| HOLD
-    Q -->|Critical Stock| AUTO_PO
-    Q -->|Over Ceiling| HUMAN
+    Q -->|Selects Optimal Action| ACTIONS
     
-    ADV --> SEA
-    HOLD --> SEA
-    AUTO_PO --> SEA
-    HUMAN -.->|Approval| SEA
+    ACTIONS -->|Triggers| SEA
     
     SEA --> LOG
 ```

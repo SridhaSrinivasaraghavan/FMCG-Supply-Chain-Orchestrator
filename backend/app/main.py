@@ -85,12 +85,19 @@ async def get_inventory(db: AsyncSession = Depends(get_db)):
 
     response = []
     for m in materials:
+        days_remaining = float(m.current_stock) / float(m.daily_consumption_rate) if m.daily_consumption_rate > 0 else 0
         response.append({
             "material_id": m.material_id,
             "name": m.name,
+            "category": m.category,
             "current_stock": float(m.current_stock),
             "unit": m.unit,
-            "days_remaining": float(m.current_stock) / float(m.daily_consumption_rate) if m.daily_consumption_rate > 0 else 0,
+            "daily_consumption_rate": float(m.daily_consumption_rate),
+            "days_remaining": days_remaining,
+            "reorder_level": float(m.reorder_level),
+            "safety_stock": float(m.safety_stock),
+            "shelf_life_days": m.shelf_life_days,
+            "unit_cost": float(m.unit_cost) if m.unit_cost is not None else 0.0,
         })
     return response
 
@@ -196,8 +203,10 @@ async def create_material(request: CreateMaterialRequest, db: AsyncSession = Dep
         current_stock=request.current_stock,
         unit=request.unit,
         reorder_level=request.reorder_level,
+        safety_stock=request.safety_stock,
         daily_consumption_rate=request.daily_consumption_rate,
         shelf_life_days=request.shelf_life_days,
+        unit_cost=request.unit_cost,
     )
     db.add(new_material)
     await db.commit()
@@ -207,9 +216,15 @@ async def create_material(request: CreateMaterialRequest, db: AsyncSession = Dep
     return {
         "material_id": new_material.material_id,
         "name": new_material.name,
+        "category": new_material.category,
         "current_stock": float(new_material.current_stock),
         "unit": new_material.unit,
+        "daily_consumption_rate": float(new_material.daily_consumption_rate),
         "days_remaining": days_remaining,
+        "reorder_level": float(new_material.reorder_level),
+        "safety_stock": float(new_material.safety_stock),
+        "shelf_life_days": new_material.shelf_life_days,
+        "unit_cost": float(new_material.unit_cost),
     }
 
 
@@ -282,7 +297,7 @@ async def stream_disruption(payload: DisruptionInput, test_mode: bool = Query(Fa
 
     async def event_generator():
         try:
-            yield f"data: {json.dumps({'agent': 'pipeline_start', 'data': {'pipeline_run_id': pipeline_run_id, 'test_mode': test_mode}})}\n\n"
+            yield f"data: {json.dumps({'agent': 'pipeline_start', 'pipeline_run_id': pipeline_run_id, 'test_mode': test_mode, 'data': {}})}\n\n"
 
             def run_stream():
                 results = []
@@ -304,7 +319,7 @@ async def stream_disruption(payload: DisruptionInput, test_mode: bool = Query(Fa
                     yield f"data: {json.dumps(event_data)}\n\n"
                     await asyncio.sleep(0.3)
 
-            yield f"data: {json.dumps({'agent': 'done', 'data': {'pipeline_run_id': pipeline_run_id}})}\n\n"
+            yield f"data: {json.dumps({'agent': 'done', 'pipeline_run_id': pipeline_run_id, 'data': {}})}\n\n"
         except Exception as e:
             logger.error(f"Pipeline {pipeline_run_id}: Streaming error — {e}")
             yield f"data: {json.dumps({'agent': 'error', 'error': str(e), 'pipeline_run_id': pipeline_run_id})}\n\n"

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 RISK_REASONING_PROMPT = PromptTemplate(
-    template="""You are a Senior Supply Chain Risk Analyst. Analyze ONLY the information below.
+    template="""You are an expert Supply Chain Risk Analyst. Your job is to analyze how a real-world disruption impacts our logistics and inventory.
 
 ## Disruption Detected
 - Event: {event_type}
@@ -58,6 +58,7 @@ Think like a human supply chain expert. Analyze intersections between the disrup
 
 IMPORTANT RULES:
 - ONLY use material_ids from the data above. Do NOT invent IDs.
+- Do NOT invent transit times or distances. Only mention transit times if they are explicitly present in the provided filtered logistics routes.
 - If no indirect impacts exist, return an empty list for indirectly_impacted_material_ids.
 - Respond ONLY with valid JSON in this exact format:
 
@@ -71,17 +72,25 @@ IMPORTANT RULES:
 )
 
 
+REGION_CITIES = {
+    "north": ["delhi", "agra", "punjab", "haryana", "uttarakhand", "himachal", "rajasthan"],
+    "west": ["mumbai", "pune", "nashik", "goa", "gujarat"],
+    "south": ["bangalore", "chennai", "hyderabad", "kerala", "andhra", "tamil nadu"],
+    "east": ["kolkata", "bhubaneswar", "visakhapatnam", "bengal", "bihar", "jharkhand"],
+    "central": ["nagpur", "telangana", "chhattisgarh", "mp"]
+}
+
 def _filter_logistics_by_region(logistics_context: dict, region: str) -> dict:
     """
     Pre-filters the logistics context to only include routes that pass through
-    or are relevant to the affected region. This reduces token usage significantly.
+    or are relevant to the affected region.
     """
     if not region or region.lower() == "unknown":
-        return logistics_context  # Can't filter without a region
+        return logistics_context
     
     region_lower = region.lower()
+    target_cities = REGION_CITIES.get(region_lower, [])
     
-    # Filter routes that pass through the affected region
     filtered_routes = []
     relevant_route_ids = set()
     
@@ -90,14 +99,12 @@ def _filter_logistics_by_region(logistics_context: dict, region: str) -> dict:
         highways = (route.get("highways", "") or "").lower()
         route_name = (route.get("name", "") or "").lower()
         
-        # Check if the route passes through the affected region or its cities
-        if (region_lower in cities or 
-            region_lower in route_name or 
-            region_lower in highways):
+        # Check if the route name/highway contains the region, OR if any region city is in the route
+        if (region_lower in cities or region_lower in route_name or region_lower in highways or
+            any(city in cities for city in target_cities)):
             filtered_routes.append(route)
             relevant_route_ids.add(route.get("route_id"))
     
-    # Filter schedules to only relevant routes
     filtered_schedules = [
         s for s in logistics_context.get("schedules", [])
         if s.get("route_id") in relevant_route_ids
@@ -105,7 +112,7 @@ def _filter_logistics_by_region(logistics_context: dict, region: str) -> dict:
     
     return {
         "factories": logistics_context.get("factories", []),
-        "routes": filtered_routes if filtered_routes else logistics_context.get("routes", []),  # Fallback to all if no match
+        "routes": filtered_routes if filtered_routes else logistics_context.get("routes", []),
         "schedules": filtered_schedules if filtered_schedules else logistics_context.get("schedules", []),
     }
 

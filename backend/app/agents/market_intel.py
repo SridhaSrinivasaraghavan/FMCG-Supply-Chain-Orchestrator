@@ -69,7 +69,7 @@ News articles RARELY state the exact delay. Use this table to INFER it based on 
 - 0-29: Unrelated, rumour, or irrelevant to FMCG supply chain.
 
 ## YOUR TASK
-1. Determine if this article is relevant to our supply chain (freight, raw materials, roads, ports, factories, floods, strikes).
+1. Determine if this article is relevant to our supply chain (freight, raw materials, roads, ports, factories, floods, strikes). NOTE: Assume ANY major freight, port, or transport disruption is highly relevant to us, even if FMCG is not explicitly mentioned.
 2. If NOT relevant, set is_supply_chain_relevant=false and everything else to defaults.
 3. If relevant, extract all fields carefully.
 

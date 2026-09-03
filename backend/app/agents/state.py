@@ -19,9 +19,12 @@ class AgentState(TypedDict):
     raw_news: str                            # Raw news text to analyze
     region: Optional[str]                    # Pre-specified region (if known)
     auto_triggered: Optional[bool]           # True if triggered by auto-scanner
+    is_test: Optional[bool]                  # True if running in test mode
     
     # ─── Agent 1: Market Intel Output ───
     threat_payload: Optional[dict]           # Structured threat extraction (validated)
+    is_supply_chain_relevant: Optional[bool] # Whether news relates to supply chain
+    confidence_score: Optional[int]          # 0-100 score of AI's confidence
     
     # ─── Agent 2: Risk Assessment Output ───
     impacted_materials: Optional[list]       # Materials at risk (direct + indirect)
@@ -30,6 +33,7 @@ class AgentState(TypedDict):
     
     # ─── Agent 3: Financial Analyst Output ───
     financial_analysis: Optional[list]       # Cost analysis + CFO decisions per material
+    approval_items: Optional[list]           # Decisions requiring human approval
     
     # ─── Agent 4: Strategy Execution Output ───
     recommended_actions: Optional[list]      # Actions taken (PO, advisory, hold)

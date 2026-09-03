@@ -11,7 +11,7 @@ from app.database import SyncSessionLocal
 from app.models import (
     Supplier, RawMaterial, SupplierMaterial, DisruptionLog,
     PurchaseOrder, Factory, TransportRoute, DeliverySchedule, ProductBOM,
-    ApprovalQueue,
+    ApprovalQueue, Product,
 )
 from sqlalchemy import and_
 from datetime import datetime, timedelta
@@ -99,6 +99,9 @@ def get_all_materials_summary():
                 "daily_consumption_rate": float(m.daily_consumption_rate),
                 "days_remaining": round(days_remaining, 1),
                 "reorder_level": float(m.reorder_level),
+                "safety_stock": float(m.safety_stock),
+                "shelf_life_days": m.shelf_life_days,
+                "unit_cost": float(m.unit_cost),
                 "primary_supplier": primary_supplier_name,
                 "primary_supplier_region": primary_region,
             })
@@ -154,18 +157,28 @@ def get_impacted_materials(region: str):
                     alternates.append({
                         "supplier_id": alt_supplier.supplier_id,
                         "name": alt_supplier.name,
+                        "material_id": mat_id,
+                        "material_name": material.name,
                         "unit_price": float(alt_m.unit_price),
+                        "available_quantity": float(alt_m.maximum_daily_quantity),
+                        "maximum_daily_quantity": float(alt_m.maximum_daily_quantity),
                         "lead_time_days": alt_supplier.lead_time_days,
-                        "reliability_score": float(alt_supplier.reliability_score)
+                        "reliability_score": float(alt_supplier.reliability_score),
+                        "location_region": alt_supplier.location_region
                     })
             
             results.append({
                 "material_id": material.material_id,
                 "name": material.name,
+                "category": material.category,
                 "current_stock": float(material.current_stock),
                 "daily_consumption_rate": float(material.daily_consumption_rate),
+                "days_remaining": float(material.current_stock) / float(material.daily_consumption_rate) if material.daily_consumption_rate > 0 else 0,
+                "reorder_level": float(material.reorder_level),
+                "safety_stock": float(material.safety_stock),
                 "primary_supplier_id": primary_supplier.supplier_id,
                 "primary_supplier_name": primary_supplier.name,
+                "primary_supplier_lead_time_days": primary_supplier.lead_time_days,
                 "alternate_suppliers": alternates
             })
             
@@ -208,18 +221,28 @@ def get_materials_with_alternates(material_ids: list):
                     alternates.append({
                         "supplier_id": alt_supplier.supplier_id,
                         "name": alt_supplier.name,
+                        "material_id": mat_id,
+                        "material_name": material.name,
                         "unit_price": float(alt_m.unit_price),
+                        "available_quantity": float(alt_m.maximum_daily_quantity),
+                        "maximum_daily_quantity": float(alt_m.maximum_daily_quantity),
                         "lead_time_days": alt_supplier.lead_time_days,
-                        "reliability_score": float(alt_supplier.reliability_score)
+                        "reliability_score": float(alt_supplier.reliability_score),
+                        "location_region": alt_supplier.location_region
                     })
             
             results.append({
                 "material_id": material.material_id,
                 "name": material.name,
+                "category": material.category,
                 "current_stock": float(material.current_stock),
                 "daily_consumption_rate": float(material.daily_consumption_rate),
+                "days_remaining": float(material.current_stock) / float(material.daily_consumption_rate) if material.daily_consumption_rate > 0 else 0,
+                "reorder_level": float(material.reorder_level),
+                "safety_stock": float(material.safety_stock),
                 "primary_supplier_id": primary_supplier.supplier_id if primary_supplier else None,
                 "primary_supplier_name": primary_supplier.name if primary_supplier else "Unknown",
+                "primary_supplier_lead_time_days": primary_supplier.lead_time_days if primary_supplier else 0,
                 "alternate_suppliers": alternates
             })
             
@@ -272,12 +295,15 @@ def get_bom_impact(material_ids: list) -> list:
         results = []
         for bom in bom_entries:
             material = session.query(RawMaterial).filter(RawMaterial.material_id == bom.material_id).first()
+            product = session.query(Product).filter(Product.product_id == bom.product_id).first()
             results.append({
-                "product_name": bom.product_name,
+                "product_name": product.name if product else "Unknown",
                 "material_id": bom.material_id,
                 "material_name": material.name if material else "Unknown",
-                "required_quantity_per_unit": float(bom.required_quantity_per_unit),
-                "unit": material.unit if material else "units",
+                "required_quantity_per_unit": float(bom.quantity_per_unit),
+                "unit": bom.unit,
+                "daily_demand": float(product.daily_demand) if product else 0.0,
+                "selling_price": float(product.selling_price) if product else 0.0,
             })
         return results
 
@@ -322,11 +348,13 @@ def create_purchase_order(
     is_test: bool = False,
 ):
     """Creates a purchase order with pipeline tracking and test-mode support."""
+    unit_price = total_cost / quantity if quantity > 0 else 0.0
     with SyncSessionLocal() as session:
         po = PurchaseOrder(
             material_id=material_id,
             supplier_id=supplier_id,
             order_quantity=quantity,
+            unit_price=unit_price,
             total_cost=total_cost,
             status="ISSUED",
             pipeline_run_id=pipeline_run_id,
@@ -349,11 +377,13 @@ def log_disruption(
     action_taken: str,
     pipeline_run_id: str = None,
     is_test: bool = False,
+    disruption_type: str = "OTHER",
 ):
     """Logs a disruption event with pipeline tracking and test-mode support."""
     with SyncSessionLocal() as session:
         log = DisruptionLog(
             source_event=source_event,
+            disruption_type=disruption_type,
             affected_material_id=material_id,
             severity_level=severity,
             action_taken=action_taken,
@@ -387,8 +417,18 @@ def create_approval_queue_item(
     severity: str,
     is_test: bool = False,
 ) -> dict:
-    """Inserts a new item into the human approval queue."""
+    """Inserts a new item into the human approval queue, skipping if a duplicate is already pending."""
     with SyncSessionLocal() as session:
+        # Deduplication check
+        existing_item = session.query(ApprovalQueue).filter(
+            ApprovalQueue.material_id == material_id,
+            ApprovalQueue.status == "PENDING"
+        ).first()
+
+        if existing_item:
+            logger.info(f"[db_tools] Skipped duplicate approval item for {material_name} (Approval #{existing_item.approval_id} already pending)")
+            return {"approval_id": existing_item.approval_id, "status": "PENDING"}
+
         item = ApprovalQueue(
             pipeline_run_id=pipeline_run_id,
             material_id=material_id,
@@ -479,10 +519,12 @@ def process_approval(approval_id: int, decision: str, reviewed_by: str, review_n
         po_id = None
         if decision == "APPROVED" and item.backup_supplier_id:
             # Create the purchase order now that human has approved
+            po_unit_price = item.total_cost / item.order_quantity if item.order_quantity > 0 else 0.0
             po = PurchaseOrder(
                 material_id=item.material_id,
                 supplier_id=item.backup_supplier_id,
                 order_quantity=item.order_quantity,
+                unit_price=po_unit_price,
                 total_cost=item.total_cost,
                 status="ISSUED",
                 pipeline_run_id=item.pipeline_run_id,

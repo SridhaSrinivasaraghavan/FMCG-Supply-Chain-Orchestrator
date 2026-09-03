@@ -8,24 +8,147 @@ st.set_page_config(page_title="FMCG Supply Chain AI", page_icon="🏭", layout="
 # ─── CSS ───
 st.markdown("""
 <style>
-.badge { padding:2px 10px; border-radius:20px; font-size:0.78em; font-weight:700; display:inline-block; }
-.badge-critical { background:#ff4b4b; color:white; }
-.badge-high     { background:#ff8c00; color:white; }
-.badge-medium   { background:#f5c400; color:#333; }
-.badge-low      { background:#21c354; color:white; }
-.badge-pending  { background:#f5c400; color:#333; }
-.badge-approved { background:#21c354; color:white; }
-.badge-rejected { background:#ff4b4b; color:white; }
-.badge-active   { background:#1c83e1; color:white; }
-.badge-resolved { background:#888; color:white; }
-.badge-execute  { background:#ff4b4b; color:white; }
-.badge-advisory { background:#1c83e1; color:white; }
-.badge-hold     { background:#21c354; color:white; }
-.approval-card  { background:#fff8e1; border-left:5px solid #f5c400; padding:16px; border-radius:8px; margin:12px 0; }
-.approval-card-rejected { background:#ffeaea; border-left:5px solid #ff4b4b; }
-.approval-card-approved { background:#f0fff0; border-left:5px solid #21c354; }
-.disruption-card { background:#e8f4fd; border-left:5px solid #1c83e1; padding:12px 16px; border-radius:8px; margin:8px 0; }
-.calc-table th { background:#f0f2f6; font-weight:600; }
+/* Modern styling for badges and cards */
+.badge { padding:4px 12px; border-radius:20px; font-size:0.8em; font-weight:700; display:inline-block; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+.badge-critical { background:linear-gradient(135deg, #ff4b4b, #d73838); color:white; }
+.badge-high     { background:linear-gradient(135deg, #ff8c00, #e67e00); color:white; }
+.badge-medium   { background:linear-gradient(135deg, #f5c400, #dcb000); color:#333; }
+.badge-low      { background:linear-gradient(135deg, #21c354, #1da948); color:white; }
+.badge-pending  { background:linear-gradient(135deg, #f5c400, #dcb000); color:#333; }
+.badge-approved { background:linear-gradient(135deg, #21c354, #1da948); color:white; }
+.badge-rejected { background:linear-gradient(135deg, #ff4b4b, #d73838); color:white; }
+.badge-active   { background:linear-gradient(135deg, #1c83e1, #166bbb); color:white; }
+.badge-resolved { background:linear-gradient(135deg, #888, #777); color:white; }
+.badge-execute  { background:linear-gradient(135deg, #ff4b4b, #d73838); color:white; }
+.badge-advisory { background:linear-gradient(135deg, #1c83e1, #166bbb); color:white; }
+.badge-hold     { background:linear-gradient(135deg, #21c354, #1da948); color:white; }
+.approval-card  { background:#fff8e1; border-left:6px solid #f5c400; padding:20px; border-radius:12px; margin:16px 0; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+.approval-card-rejected { background:#ffeaea; border-left:6px solid #ff4b4b; }
+.approval-card-approved { background:#f0fff0; border-left:6px solid #21c354; }
+.disruption-card { background:#e8f4fd; border-left:6px solid #1c83e1; padding:16px 20px; border-radius:12px; margin:12px 0; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+.calc-table th { background:#f0f2f6; font-weight:700; color:#444; }
+
+/* Streamlit component overrides for better aesthetics */
+[data-testid="stAlert"] {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+[data-testid="stAlert"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
+}
+h1 {
+    font-weight: 800 !important;
+    background: -webkit-linear-gradient(45deg, #1c83e1, #904bc3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding-bottom: 5px;
+}
+div[data-testid="stMetricValue"] {
+    font-weight: 700;
+    color: #1e1e1e;
+}
+
+/* Rich Agent Cards */
+.rich-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    border: 1px solid #f0f0f0;
+    transition: all 0.3s ease;
+    border-left: 8px solid #1c83e1;
+}
+.rich-card:hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+.rich-card.market { border-left-color: #8b5cf6; }
+.rich-card.risk { border-left-color: #f59e0b; }
+.rich-card.cfo { border-left-color: #10b981; }
+.rich-card.strategy { border-left-color: #3b82f6; }
+.rich-card.error { border-left-color: #ef4444; }
+.rich-card.stopped { border-left-color: #6b7280; background: #f9fafb; }
+
+.rich-card-header {
+    display: flex;
+    align-items: center;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #f3f4f6;
+    padding-bottom: 12px;
+}
+.rich-card-header span {
+    margin-right: 10px;
+}
+.rich-card-body {
+    font-size: 1rem;
+    color: #374151;
+    line-height: 1.6;
+}
+.rich-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.95rem;
+}
+.rich-table th, .rich-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+.rich-table th {
+    background: #f9fafb;
+    color: #4b5563;
+    font-weight: 600;
+}
+.rich-table td:first-child {
+    color: #6b7280;
+}
+.rich-table td:last-child {
+    font-weight: 600;
+    color: #111827;
+}
+.metric-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.metric-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    flex: 1;
+    min-width: 120px;
+}
+.metric-box-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.metric-box-val {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+}
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #e5e7eb;
+    color: #374151;
+    display: inline-block;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,19 +269,19 @@ elif page == "🚨 Disruption Console":
         st.divider()
         st.subheader(f"🧠 Live Agent Thoughts {'[🧪 TEST MODE]' if test_mode else ''}")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            market_card = st.empty()
-            risk_card = st.empty()
-        with col2:
-            cfo_card = st.empty()
-            strategy_card = st.empty()
+        pipeline_container = st.container()
+        
+        loading_html = """
+        <div style="display:flex; align-items:center; justify-content:center; padding: 40px; background: #f9fafb; border-radius: 12px; border: 1px dashed #d1d5db; color: #6b7280; font-weight: 600; margin-bottom: 20px;">
+            <div class="spinner" style="border: 4px solid rgba(0, 0, 0, 0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s linear infinite; margin-right: 12px;"></div>
+            <span>{text}</span>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        </div>
+        """
+        loading_placeholder = st.empty()
+        loading_placeholder.markdown(loading_html.replace("{text}", "🔄 Processing Market Intel..."), unsafe_allow_html=True)
+        
         summary_container = st.empty()
-
-        market_card.info("⏳ Market Intel: Waiting...")
-        risk_card.info("⏳ Risk Assessment: Waiting...")
-        cfo_card.info("⏳ CFO Analyst: Waiting...")
-        strategy_card.info("⏳ Strategy Execution: Waiting...")
 
         try:
             for event in api_client.stream_disruption(news_input, test_mode=test_mode):
@@ -172,91 +295,124 @@ elif page == "🚨 Disruption Console":
                     relevant = data.get("is_supply_chain_relevant", True)
 
                     if not relevant:
-                        market_card.warning(
-                            f"**📰 Market Intel — NOT Relevant**\n\n"
-                            f"This article is not related to our supply chain. Pipeline stopped early.\n\n"
-                            f"**Confidence:** {conf}%"
-                        )
+                        html = f"""
+                        <div class="rich-card stopped">
+                            <div class="rich-card-header"><span>🛑</span> Market Intel — NOT Relevant</div>
+                            <div class="rich-card-body">
+                                <p>This article is not related to our supply chain. Pipeline stopped early.</p>
+                                <p><b>Confidence:</b> {conf}%</p>
+                            </div>
+                        </div>
+                        """
+                        pipeline_container.markdown(html, unsafe_allow_html=True)
+                        loading_placeholder.empty()
                         continue
 
                     sev = (payload.get("severity") or "MEDIUM").upper()
-                    market_card.success(
-                        f"**📰 Market Intel Complete**\n\n"
-                        f"**Event:** {(payload.get('event_type') or 'N/A').replace('_', ' ').title()}  \n"
-                        f"**Region:** {payload.get('region', 'N/A')}  \n"
-                        f"**Location:** {payload.get('key_location', 'N/A')}  \n"
-                        f"**Severity:** `{sev}`  \n"
-                        f"**Est. Delay:** {payload.get('estimated_delay_days', '?')} days *(inferred from event type)*  \n"
-                        f"**Confidence Score:** {conf}%  \n"
-                        f"**Commodities:** {', '.join(payload.get('affected_commodities', []))}  \n\n"
-                        f"**Summary:** _{payload.get('summary', '')}_"
-                    )
-                    risk_card.warning("🔄 Risk Assessment: Scanning logistics map...")
+                    event_type = (payload.get('event_type') or 'N/A').replace('_', ' ').title()
+                    loc = payload.get('key_location', 'N/A')
+                    reg = payload.get('region', 'N/A')
+                    delay = payload.get('estimated_delay_days', '?')
+                    comms = ', '.join(payload.get('affected_commodities', []))
+                    summary = payload.get('summary', '')
+
+                    html = f"""
+                    <div class="rich-card market">
+                        <div class="rich-card-header"><span>📰</span> Market Intel Complete</div>
+                        <div class="rich-card-body">
+                            <div class="metric-row">
+                                <div class="metric-box"><div class="metric-box-title">Event Type</div><div class="metric-box-val">{event_type}</div></div>
+                                <div class="metric-box"><div class="metric-box-title">Severity</div><div class="metric-box-val">{sev}</div></div>
+                                <div class="metric-box"><div class="metric-box-title">Est. Delay</div><div class="metric-box-val">{delay} days</div></div>
+                                <div class="metric-box"><div class="metric-box-title">Confidence</div><div class="metric-box-val">{conf}%</div></div>
+                            </div>
+                            <p><b>Location:</b> {loc} ({reg})</p>
+                            <p><b>Affected Commodities:</b> {comms}</p>
+                            <p><i>"{summary}"</i></p>
+                        </div>
+                    </div>
+                    """
+                    pipeline_container.markdown(html, unsafe_allow_html=True)
+                    loading_placeholder.markdown(loading_html.replace("{text}", "🔄 Risk Assessment: Scanning logistics map..."), unsafe_allow_html=True)
 
                 elif agent == "risk_assessment":
-                    reasoning = data.get("risk_reasoning", "No reasoning.")
+                    reasoning = data.get("risk_reasoning", "No reasoning.").replace('\n', '<br>')
                     risk_lvl = data.get("risk_level", "MEDIUM")
                     impacted = data.get("impacted_materials", [])
                     impacted_names = ", ".join([m.get("name", "?") for m in impacted]) if impacted else "None detected"
 
-                    risk_card.success(
-                        f"**🗺️ Risk Assessment Complete**\n\n"
-                        f"**Overall Risk:** `{risk_lvl}`  \n"
-                        f"**Materials at Risk:** {impacted_names}  \n\n"
-                        f"**Full Reasoning:**\n{reasoning}"
-                    )
-                    cfo_card.warning("🔄 CFO Analyst: Running financial calculations...")
+                    html = f"""
+                    <div class="rich-card risk">
+                        <div class="rich-card-header"><span>🗺️</span> Risk Assessment Complete</div>
+                        <div class="rich-card-body">
+                            <div class="metric-row">
+                                <div class="metric-box"><div class="metric-box-title">Overall Risk</div><div class="metric-box-val">{risk_lvl}</div></div>
+                                <div class="metric-box"><div class="metric-box-title">Materials at Risk</div><div class="metric-box-val">{impacted_names}</div></div>
+                            </div>
+                            <p><b>Full Reasoning:</b></p>
+                            <p style="background: #f9fafb; padding: 12px; border-radius: 8px; font-size: 0.95em; color: #4b5563;">{reasoning}</p>
+                        </div>
+                    </div>
+                    """
+                    pipeline_container.markdown(html, unsafe_allow_html=True)
+                    loading_placeholder.markdown(loading_html.replace("{text}", "🔄 CFO Analyst: Running financial calculations..."), unsafe_allow_html=True)
 
                 elif agent == "financial_analyst":
                     analysis = data.get("financial_analysis", [])
                     approvals = data.get("approval_items", [])
 
-                    cfo_lines = "**💼 CFO Analyst Complete**\n\n"
-
+                    body_html = ""
                     for item in analysis:
                         rec = item.get("recommendation", "HOLD_AND_MONITOR")
                         rec_label = {
-                            "EXECUTE_BACKUP_PO": "🔴 EXECUTE BACKUP PO",
-                            "PROACTIVE_ADVISORY": "🔵 PROACTIVE ADVISORY",
-                            "HOLD_AND_MONITOR": "🟢 HOLD & MONITOR",
-                        }.get(rec, rec)
+                            "EXECUTE_BACKUP_PO": "<span class='status-badge' style='background:#fef2f2;color:#991b1b;'>🔴 EXECUTE BACKUP PO</span>",
+                            "PROACTIVE_ADVISORY": "<span class='status-badge' style='background:#eff6ff;color:#1e40af;'>🔵 PROACTIVE ADVISORY</span>",
+                            "HOLD_AND_MONITOR": "<span class='status-badge' style='background:#f0fdf4;color:#166534;'>🟢 HOLD & MONITOR</span>",
+                        }.get(rec, f"<span class='status-badge'>{rec}</span>")
+                        
                         best_alt = item.get("best_alternate") or {}
                         days_rem = item.get("days_remaining", 0)
                         delay = item.get("delay_days", 0)
                         idle_cost = item.get("factory_idle_cost", 0)
                         total_cost = item.get("total_cost", 0)
                         order_qty = item.get("order_qty", 0)
-
-                        cfo_lines += f"---\n**{item.get('material_name', '?')}** → {rec_label}\n\n"
-                        cfo_lines += (
-                            f"| Metric | Value |\n|--------|-------|\n"
-                            f"| 📅 Stock Remaining | **{days_rem:.1f} days** |\n"
-                            f"| ⏱️ Estimated Delay | **{delay} days** |\n"
-                            f"| 🏭 Factory Idle Cost | **₹{idle_cost:,.0f}** |\n"
-                            f"| 🏢 Primary Supplier | {item.get('primary_supplier_name', 'Unknown')} |\n"
-                        )
+                        
+                        body_html += f"<h4 style='margin-bottom:8px; color:#111827;'>{item.get('material_name', '?')} {rec_label}</h4>"
+                        
+                        table_html = "<table class='rich-table'>"
+                        table_html += f"<tr><td>📅 Stock Remaining</td><td>{days_rem:.1f} days</td></tr>"
+                        table_html += f"<tr><td>⏱️ Estimated Delay</td><td>{delay} days</td></tr>"
+                        table_html += f"<tr><td>🏭 Factory Idle Cost</td><td>₹{idle_cost:,.0f}</td></tr>"
+                        table_html += f"<tr><td>🏢 Primary Supplier</td><td>{item.get('primary_supplier_name', 'Unknown')}</td></tr>"
+                        
                         if best_alt:
-                            cap_note = " *(capacity capped)*" if best_alt.get("capacity_capped") else ""
-                            cfo_lines += (
-                                f"| 🔀 Backup Supplier | {best_alt.get('supplier_name', 'N/A')} |\n"
-                                f"| 📦 Order Quantity | {order_qty:,.1f} units{cap_note} |\n"
-                                f"| 💰 Total Cost | **₹{total_cost:,.2f}** |\n"
-                                f"| ⭐ Reliability | {best_alt.get('reliability_score', 0)*100:.0f}% |\n"
-                            )
-                        cfo_lines += f"\n*Rationale: {item.get('rationale', 'N/A')}*\n\n"
+                            cap_note = " <span style='color:#ef4444;'>(capacity capped)</span>" if best_alt.get("capacity_capped") else ""
+                            table_html += f"<tr><td>🔀 Backup Supplier</td><td>{best_alt.get('supplier_name', 'N/A')}</td></tr>"
+                            table_html += f"<tr><td>📦 Order Quantity</td><td>{order_qty:,.1f} units{cap_note}</td></tr>"
+                            table_html += f"<tr><td>💰 Total Cost</td><td>₹{total_cost:,.2f}</td></tr>"
+                            table_html += f"<tr><td>⭐ Reliability</td><td>{best_alt.get('reliability_score', 0)*100:.0f}%</td></tr>"
+                        table_html += "</table>"
+                        
+                        body_html += table_html
+                        body_html += f"<p style='color:#4b5563;'><i>Rationale: {item.get('rationale', 'N/A')}</i></p><hr style='border:none;border-top:1px dashed #e5e7eb;margin:20px 0;'>"
 
                     for item in approvals:
                         trigger = item.get("trigger_reason", "UNKNOWN")
-                        reason_label = "💰 Cost exceeds ₹1,00,000 ceiling" if trigger == "COST_CEILING" else f"⚠️ Low confidence ({item.get('confidence_score')}%)"
-                        cfo_lines += (
-                            f"---\n**{item.get('material_name', '?')}** → 🟡 SENT TO APPROVAL QUEUE\n\n"
-                            f"**Reason:** {reason_label}  \n"
-                            f"**Proposed Cost:** ₹{item.get('total_cost', 0):,.2f}  \n"
-                            f"*A human admin must review and approve this PO.*\n\n"
-                        )
+                        reason_label = "💰 Cost ceiling exceeded" if trigger == "COST_CEILING" else f"⚠️ Low confidence ({item.get('confidence_score')}%)"
+                        body_html += f"<h4 style='margin-bottom:8px; color:#111827;'>{item.get('material_name', '?')} <span class='status-badge' style='background:#fef9c3;color:#854d0e;'>🟡 SENT TO APPROVAL QUEUE</span></h4>"
+                        body_html += f"<p><b>Reason:</b> {reason_label}<br><b>Proposed Cost:</b> ₹{item.get('total_cost', 0):,.2f}</p>"
+                        body_html += f"<p style='color:#6b7280;'><i>*A human admin must review and approve this PO.</i></p><hr style='border:none;border-top:1px dashed #e5e7eb;margin:20px 0;'>"
 
-                    cfo_card.success(cfo_lines)
-                    strategy_card.warning("🔄 Strategy Execution: Executing decisions...")
+                    html = f"""
+                    <div class="rich-card cfo">
+                        <div class="rich-card-header"><span>💼</span> CFO Analyst Complete</div>
+                        <div class="rich-card-body">
+                            {body_html}
+                        </div>
+                    </div>
+                    """
+                    pipeline_container.markdown(html, unsafe_allow_html=True)
+                    loading_placeholder.markdown(loading_html.replace("{text}", "🔄 Strategy Execution: Executing decisions..."), unsafe_allow_html=True)
 
                 elif agent == "strategy_execution":
                     actions = data.get("recommended_actions", [])
@@ -268,13 +424,24 @@ elif page == "🚨 Disruption Console":
                         "SKIPPED": "⏭️", "ERROR": "❌",
                         "PENDING_APPROVAL": "🟡", "REVIEW_NEEDED": "⚠️",
                     }
-                    strat_lines = "**⚡ Strategy Execution Complete**\n\n"
+                    
+                    body_html = ""
                     for a in actions:
                         status = a.get("status", "")
                         icon = status_icons.get(status.split(" ")[0], "🔹")
-                        strat_lines += f"{icon} **{a.get('material', '?')}**: `{status}`\n\n_{a.get('action', 'N/A')}_\n\n"
+                        body_html += f"<div style='background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e5e7eb;'>"
+                        body_html += f"<div style='font-weight: 700; margin-bottom: 4px; color:#111827;'>{icon} {a.get('material', '?')} <span class='status-badge'>{status}</span></div>"
+                        body_html += f"<div style='color: #4b5563; font-size: 0.95em;'>{a.get('action', 'N/A')}</div></div>"
 
-                    strategy_card.success(strat_lines)
+                    html = f"""
+                    <div class="rich-card strategy">
+                        <div class="rich-card-header"><span>⚡</span> Strategy Execution Complete</div>
+                        <div class="rich-card-body">
+                            {body_html}
+                        </div>
+                    </div>
+                    """
+                    pipeline_container.markdown(html, unsafe_allow_html=True)
 
                     if exec_summary:
                         summary_container.info(
@@ -282,12 +449,22 @@ elif page == "🚨 Disruption Console":
                         )
 
                 elif agent == "done":
+                    loading_placeholder.empty()
                     if not test_mode:
                         st.balloons()
                     st.success(f"✅ Pipeline `{pipeline_id}` Complete! {'[TEST MODE — no real POs created]' if test_mode else ''}")
 
                 elif agent == "error":
-                    st.error(f"Pipeline Error: {event.get('error')}")
+                    loading_placeholder.empty()
+                    html = f"""
+                    <div class="rich-card error">
+                        <div class="rich-card-header"><span>❌</span> Pipeline Error</div>
+                        <div class="rich-card-body">
+                            <p>{event.get('error')}</p>
+                        </div>
+                    </div>
+                    """
+                    pipeline_container.markdown(html, unsafe_allow_html=True)
                     break
 
         except Exception as e:
@@ -442,22 +619,47 @@ elif page == "⚡ Active Disruptions":
 elif page == "📦 Purchase Orders":
     st.title("📦 Purchase Orders")
     pos = api_client.get_purchase_orders()
-    if pos:
-        df = pd.DataFrame(pos)
-        st.dataframe(df, use_container_width=True)
-        st.divider()
-        st.subheader("✏️ Update PO Status")
-        po_ids = [p["po_id"] for p in pos]
-        selected_po = st.selectbox("Select PO", po_ids, format_func=lambda x: f"PO #{x}")
-        new_status = st.selectbox("New Status", ["CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"])
-        if st.button("Update Status"):
-            result = api_client.update_po_status(selected_po, new_status)
-            if result:
-                st.success(f"✅ PO #{selected_po}: status updated to **{new_status}**")
-            else:
-                st.error("Update failed")
-    else:
+    if not pos:
         st.info("No purchase orders yet.")
+    else:
+        for po in pos:
+            status = po.get("status", "UNKNOWN")
+            status_color = {
+                "ISSUED": "#f5c400",
+                "CONFIRMED": "#1c83e1",
+                "SHIPPED": "#8b5cf6",
+                "DELIVERED": "#21c354",
+                "CANCELLED": "#ef4444"
+            }.get(status, "#6b7280")
+            
+            with st.expander(f"📦 PO #{po['po_id']} | Status: {status} | ₹{po.get('total_cost', 0):,.2f}"):
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Material ID", po.get("material_id"))
+                col2.metric("Supplier ID", po.get("supplier_id"))
+                col3.metric("Quantity", f"{po.get('order_quantity', 0):,.1f}")
+                
+                st.markdown(f"**Pipeline Run ID:** `{po.get('pipeline_run_id', 'N/A')}`")
+                st.markdown(f"**Created At:** {po.get('created_at')}")
+                st.markdown("---")
+                
+                # Status Update Form
+                st.markdown("**Update Status**")
+                new_status = st.selectbox(
+                    "New Status", 
+                    ["ISSUED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"], 
+                    index=["ISSUED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].index(status) if status in ["ISSUED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] else 0,
+                    key=f"status_{po['po_id']}"
+                )
+                if st.button("Update Status", key=f"btn_{po['po_id']}"):
+                    if new_status != status:
+                        result = api_client.update_po_status(po['po_id'], new_status)
+                        if result:
+                            st.success(f"✅ Status updated to **{new_status}**")
+                            st.rerun()
+                        else:
+                            st.error("Update failed")
+                    else:
+                        st.info("Status is already " + status)
 
 
 # ═══════════════════════════════════════════════════
@@ -466,9 +668,26 @@ elif page == "📦 Purchase Orders":
 elif page == "📜 Disruption Logs":
     st.title("📜 All Disruption Logs")
     logs = api_client.get_logs()
-    if logs:
-        df = pd.DataFrame(logs)
-        cols_to_show = [c for c in ["log_id", "timestamp", "pipeline_run_id", "affected_material_id", "severity_level", "source_event", "action_taken", "is_test"] if c in df.columns]
-        st.dataframe(df[cols_to_show], use_container_width=True)
-    else:
+    if not logs:
         st.info("No disruption logs yet.")
+    else:
+        for log in logs:
+            severity = log.get("severity_level", "UNKNOWN")
+            sev_class = {"CRITICAL": "critical", "HIGH": "high", "MEDIUM": "medium", "LOW": "low"}.get(severity, "medium")
+            test_badge = " <span class='badge badge-hold'>TEST DATA</span>" if log.get("is_test") else ""
+            
+            with st.expander(f"📝 Log #{log['log_id']} | {log['disruption_type']} | {severity}"):
+                st.markdown(f"**Pipeline Run ID:** `{log.get('pipeline_run_id', 'N/A')}`{test_badge}", unsafe_allow_html=True)
+                st.markdown(f"**Timestamp:** {log.get('timestamp')}")
+                st.markdown("---")
+                
+                st.markdown("**📰 Source Event**")
+                st.info(log.get("source_event", "N/A"))
+                
+                st.markdown("**⚡ Action Taken (Reasoning & Result)**")
+                st.success(log.get("action_taken", "N/A"))
+                
+                if log.get("estimated_cost") or log.get("estimated_avoided_loss"):
+                    col1, col2 = st.columns(2)
+                    col1.metric("Estimated Cost", f"₹{log.get('estimated_cost', 0):,.2f}")
+                    col2.metric("Avoided Loss", f"₹{log.get('estimated_avoided_loss', 0):,.2f}")

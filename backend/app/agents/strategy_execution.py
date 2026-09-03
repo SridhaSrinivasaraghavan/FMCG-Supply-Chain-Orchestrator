@@ -100,6 +100,7 @@ def strategy_execution_node(state: AgentState):
                 source_event=source_event, material_id=mat_id,
                 severity=severity, action_taken=desc,
                 pipeline_run_id=pipeline_id, is_test=is_test,
+                disruption_type=str(getattr(event_type, "value", event_type)),
             )
             actions_taken.append({"material": mat_name, "action": desc, "status": "HELD"})
             logger.info(f"[strategy_execution] Pipeline {pipeline_id}: {mat_name} → HOLD_AND_MONITOR")
@@ -192,6 +193,7 @@ def _execute_backup_po(analysis, source_event, severity, pipeline_id, is_test):
             source_event=source_event, material_id=mat_id,
             severity=severity, action_taken=action_desc,
             pipeline_run_id=pipeline_id, is_test=is_test,
+            disruption_type=str(getattr(analysis.get("event_type", "OTHER"), "value", analysis.get("event_type", "OTHER"))),
         )
 
         supplier_email = get_supplier_email(best_alt["supplier_id"])
@@ -242,6 +244,7 @@ def _send_proactive_advisory(analysis, threat_payload, source_event, severity, p
         log_disruption(
             source_event=source_event, material_id=mat_id,
             severity=severity, action_taken=action_desc, pipeline_run_id=pipeline_id,
+            disruption_type=str(getattr(threat_payload.get("event_type", "OTHER"), "value", threat_payload.get("event_type", "OTHER"))),
         )
         logger.info(f"[strategy_execution] Pipeline {pipeline_id}: Advisory sent for {mat_name}")
         return {"material": mat_name, "action": action_desc, "status": "ADVISORY_SENT"}

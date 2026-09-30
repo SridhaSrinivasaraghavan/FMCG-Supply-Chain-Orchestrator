@@ -1,6 +1,7 @@
 import streamlit as st
 import api_client
 import pandas as pd
+# try:\n    import pandas as pd\nexcept Exception:\n    class _DummyDF:\n        def __init__(self, data=None):\n            self.data = data or []\n        def __repr__(self):\n            return f'DummyDataFrame({self.data})'\n        # Add minimal methods used in UI if needed\n    pd = type('pd', (), {'DataFrame': _DummyDF})
 import json
 
 st.set_page_config(page_title="FMCG Supply Chain AI", page_icon="🏭", layout="wide")
@@ -247,13 +248,60 @@ elif page == "🚨 Disruption Console":
     st.title("🚨 Live Disruption Console")
     st.markdown("Enter a news event and watch the multi-agent AI pipeline **analyze and react** in real-time.")
 
+    DISRUPTION_PRESETS = {
+        "D1: Monsoon flooding (Weather / logistics → Shipment delay)": {
+            "name": "D1: Monsoon flooding",
+            "type": "Weather / logistics",
+            "impact": "Shipment delay",
+            "text": "Severe monsoon flooding and continuous torrential rainfall have submerged key sections of NH-48 and port access roads in the West region near Mumbai. Over 150 freight transit trucks are stranded in floodwaters, causing an estimated 5-day shipment delay for vegetable oil and industrial fats consignments.",
+        },
+        "D2: Transport strike (Logistics → Delivery disruption)": {
+            "name": "D2: Transport strike",
+            "type": "Logistics",
+            "impact": "Delivery disruption",
+            "text": "The All-India Motor Transport Congress has commenced a 4-day statewide indefinite truckers and logistics strike across Karnataka and South region transit corridors. Truck movement is halted and toll gates are blockaded, causing severe delivery disruption to Chennai manufacturing facilities.",
+        },
+        "D3: Primary supplier shutdown (Supplier → Material unavailability)": {
+            "name": "D3: Primary supplier shutdown",
+            "type": "Supplier",
+            "impact": "Material unavailability",
+            "text": "A massive catastrophic boiler explosion and electrical fire has forced an indefinite factory shutdown at SweetLife Sugar Co in Kolkata (East region). All refining and dispatch operations are suspended for at least 15 days, resulting in acute material unavailability of refined sugar for contract FMCG bakeries.",
+        },
+        "D4: Wheat flour shortage (Raw material → Production constraint)": {
+            "name": "D4: Wheat flour shortage",
+            "type": "Raw material",
+            "impact": "Production constraint",
+            "text": "Unseasonal crop devastation and sudden government export curbs have triggered an acute Grade-A wheat flour shortage across Delhi-NCR and Punjab milling clusters in the North region. Regional Agro Farms has announced a force majeure with a 12-day supply deficit, imposing severe production constraints on commercial biscuit and cookie lines.",
+        },
+        "D5: Unexpected demand surge (Demand → Increased production requirement)": {
+            "name": "D5: Unexpected demand surge",
+            "type": "Demand",
+            "impact": "Increased production requirement",
+            "text": "A nationwide festive retail campaign and flash e-commerce promotion have triggered an unexpected 100% demand surge for biscuits and cookies across Bangalore and South region hubs. Production requirements have doubled immediately, which will exhaust current raw material inventory buffers within 48 hours unless expedited backup replenishment is secured.",
+        },
+        "Custom Scenario (Type your own news)": {
+            "name": "Custom Scenario",
+            "type": "Custom",
+            "impact": "User-defined",
+            "text": "A major highway blockade is reported near Delhi on NH-58 due to a farmer protest. Trucks have been stuck for hours and officials say the blockade will continue for the next 48 hours.",
+        },
+    }
+
+    selected_preset_key = st.selectbox(
+        "⚡ Quick Select Disruption Scenario:",
+        list(DISRUPTION_PRESETS.keys()),
+        index=0,
+    )
+    preset_data = DISRUPTION_PRESETS[selected_preset_key]
+    st.caption(f"📌 **Category:** `{preset_data['type']}` | **Main Impact:** `{preset_data['impact']}`")
+
     # Test Mode toggle
     col_input, col_toggle = st.columns([4, 1])
     with col_input:
         news_input = st.text_area(
-            "Paste News Article:",
-            "A major highway blockade is reported near Delhi on NH-58 due to a farmer protest. Trucks have been stuck for hours and officials say the blockade will continue for the next 48 hours.",
-            height=100,
+            "Disruption News / Event Description:",
+            preset_data["text"],
+            height=110,
         )
     with col_toggle:
         st.markdown("**🧪 Test Mode**")

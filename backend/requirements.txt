@@ -5,14 +5,14 @@ asyncpg==0.29.0
 psycopg2-binary==2.9.9
 alembic==1.13.1
 pydantic==2.7.1
-pydantic-settings==2.2.1
+pydantic-settings>=2.10.1
 langchain-core
-langchain-community
+# langchain-community removed (optional)
 langchain-openai
 langchain-ollama
 langgraph
 crewai
-pandas==2.2.2
+pandas>=2.3.3
 numpy==1.26.4
 feedparser==6.0.11
 httpx==0.27.0

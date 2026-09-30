@@ -6,6 +6,7 @@ Adds two intelligent early-exit conditions to prevent wasting LLM compute:
 2. After Risk Assessment: exit if no materials are impacted in the affected region
 3. Conditional routing after Financial Analyst: only run Strategy Execution if there's work to do
 """
+# pyrefly: ignore [missing-import]
 from langgraph.graph import StateGraph, END
 from app.agents.state import AgentState
 from app.agents.market_intel import market_intel_node
@@ -15,7 +16,6 @@ from app.agents.strategy_execution import strategy_execution_node
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 def route_after_market_intel(state: AgentState) -> str:
     """

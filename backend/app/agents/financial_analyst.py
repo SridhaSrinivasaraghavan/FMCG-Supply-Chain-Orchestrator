@@ -12,6 +12,7 @@ from app.config import settings
 from app.services.llm_factory import get_llm
 from app.services.llm_utils import invoke_llm_with_retry, parse_llm_json
 from app.tools.db_tools import get_primary_supplier_price, get_bom_impact
+# pyrefly: ignore [missing-import]
 from langchain_core.prompts import PromptTemplate
 import json
 import logging

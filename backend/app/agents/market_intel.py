@@ -27,6 +27,11 @@ News articles RARELY state the exact delay. Use this table to INFER it based on 
 
 | Event Type               | Realistic Delay Estimate                          |
 |--------------------------|---------------------------------------------------|
+| monsoon_flooding         | 3-7 days (monsoon, submerged highways, bridge block) |
+| transport_strike         | 2-5 days (truckers strike, toll blockade)          |
+| supplier_shutdown        | 10-30 days (boiler explosion, fire, plant closed)  |
+| raw_material_shortage    | 7-20 days (crop damage, export curbs, flour deficit)|
+| demand_surge             | 2-5 days lead time constraint (flash retail surge) |
 | road_accident_minor      | 3-8 hours → use 0.3 days                         |
 | road_accident_major      | 12-48 hours → use 1-2 days                       |
 | road_bridge_closure      | 7-30 days (structural damage or repair)           |
@@ -69,7 +74,7 @@ News articles RARELY state the exact delay. Use this table to INFER it based on 
 - 0-29: Unrelated, rumour, or irrelevant to FMCG supply chain.
 
 ## YOUR TASK
-1. Determine if this article is relevant to our supply chain (freight, raw materials, roads, ports, factories, floods, strikes). NOTE: Assume ANY major freight, port, or transport disruption is highly relevant to us, even if FMCG is not explicitly mentioned.
+1. Determine if this article is relevant to our supply chain (freight, raw materials, roads, ports, factories, floods, strikes, demand surges). NOTE: Assume ANY major freight, port, demand surge, or transport disruption is highly relevant to us, even if FMCG is not explicitly mentioned.
 2. If NOT relevant, set is_supply_chain_relevant=false and everything else to defaults.
 3. If relevant, extract all fields carefully.
 
@@ -77,17 +82,17 @@ Output ONLY valid JSON — no markdown, no explanation:
 {{
   "is_supply_chain_relevant": true,
   "confidence_score": 85,
-  "event_type": "flood_regional_severe",
-  "region": "North",
+  "event_type": "monsoon_flooding",
+  "region": "West",
   "severity": "HIGH",
-  "estimated_delay_days": 14,
-  "affected_commodities": ["wheat", "flour"],
-  "key_location": "Delhi-Meerut highway near Ghaziabad",
-  "summary": "Severe monsoon flooding in North region blocks NH58 and NH24, halting freight for an estimated 2 weeks.",
-  "reasoning": "The article mentions severe flooding on NH58 and NH24 (North region). Based on the delay table, flood_regional_severe causes a 14-day delay, mapping to HIGH severity."
+  "estimated_delay_days": 5,
+  "affected_commodities": ["palm oil", "vegetable fat"],
+  "key_location": "NH-48 near Mumbai",
+  "summary": "Severe monsoon flooding in West region blocks NH-48, causing 5-day shipment delays.",
+  "reasoning": "Monsoon flooding submerges key transit highway in West region, creating a 5-day shipment delay for oils."
 }}
 
-Valid event_type values: road_accident_minor, road_accident_major, road_bridge_closure, flood_localized, flood_regional_severe, fire_warehouse, fire_factory, port_strike, rail_strike, highway_blockade, earthquake_moderate, earthquake_severe, chemical_spill_road, chemical_spill_facility, cyclone_severe_weather, dense_fog_highway, crop_failure_shortage, customs_regulatory_delay, transport_disruption, other
+Valid event_type values: monsoon_flooding, transport_strike, supplier_shutdown, raw_material_shortage, demand_surge, road_accident_minor, road_accident_major, road_bridge_closure, flood_localized, flood_regional_severe, fire_warehouse, fire_factory, port_strike, rail_strike, highway_blockade, earthquake_moderate, earthquake_severe, chemical_spill_road, chemical_spill_facility, cyclone_severe_weather, dense_fog_highway, crop_failure_shortage, customs_regulatory_delay, transport_disruption, other
 
 News Article:
 {raw_news}

@@ -1,4 +1,5 @@
 import asyncio
+from sqlalchemy import text
 from app.database import async_engine, Base
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -13,10 +14,11 @@ AsyncSessionLocal = sessionmaker(
 
 async def init_db():
     async with async_engine.begin() as conn:
-        print("Creating tables...")
-        await conn.run_sync(Base.metadata.drop_all)
+        print("Dropping existing tables and recreating schema...")
+        await conn.execute(text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(text("CREATE SCHEMA public;"))
         await conn.run_sync(Base.metadata.create_all)
-        print("Tables created.")
+        print("Tables created successfully.")
 
 async def seed_data():
     async with AsyncSessionLocal() as session:
@@ -151,6 +153,19 @@ async def seed_data():
             TransportRoute(supplier_id=8, factory_id=factory.factory_id, route_name="Mumbai Port-Chennai", key_highways="NH-48", key_cities_passed="Mumbai, Pune, Belagavi, Bangalore, Chennai", distance_km=1340, normal_transit_hours=32),
         ]
         session.add_all(routes)
+        await session.commit()
+
+        # 8. Delivery Schedules
+        schedules = [
+            DeliverySchedule(route_id=1, material_id=1, delivery_day="Monday", expected_departure_time="06:00", expected_arrival_time="06:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=2, material_id=2, delivery_day="Tuesday", expected_departure_time="08:00", expected_arrival_time="16:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=3, material_id=2, delivery_day="Wednesday", expected_departure_time="07:00", expected_arrival_time="19:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=4, material_id=3, delivery_day="Thursday", expected_departure_time="05:00", expected_arrival_time="11:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=5, material_id=4, delivery_day="Friday", expected_departure_time="09:00", expected_arrival_time="09:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=7, material_id=7, delivery_day="Monday", expected_departure_time="10:00", expected_arrival_time="12:00", estimated_delay_hours=0.0, status="PLANNED"),
+            DeliverySchedule(route_id=8, material_id=5, delivery_day="Tuesday", expected_departure_time="06:00", expected_arrival_time="14:00", estimated_delay_hours=0.0, status="PLANNED"),
+        ]
+        session.add_all(schedules)
         await session.commit()
 
         print("Data seeded successfully with factories, routes, products, and schedules!")

@@ -11,6 +11,7 @@ from app.schemas import (
     ThreatPayload, RiskAssessmentResult,
     DisruptionTypeEnum, SeverityEnum, ActionTypeEnum
 )
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 # Reusing the schemas directly where possible.
 class CFODecision(BaseModel):
@@ -49,15 +50,18 @@ def validate_threat_payload(data: dict) -> dict:
         # Safely map event_type if it doesn't match the enum
         valid_enum_values = {e.value for e in DisruptionTypeEnum}
         if "event_type" in data and data["event_type"] not in valid_enum_values:
-            # Try to uppercase it, if it's still not valid, use OTHER or SUPPLIER_FAILURE
             upper_val = str(data["event_type"]).upper()
             if upper_val in valid_enum_values:
                 data["event_type"] = upper_val
-            elif "FIRE" in upper_val or "STRIKE" in upper_val:
+            elif "DEMAND" in upper_val or "SURGE" in upper_val:
+                data["event_type"] = "DEMAND_SURGE"
+            elif "SHORTAGE" in upper_val or "CROP" in upper_val or "DEFICIT" in upper_val:
+                data["event_type"] = "RAW_MATERIAL_SHORTAGE"
+            elif "SHUTDOWN" in upper_val or "FIRE" in upper_val or "EXPLOSION" in upper_val or "FAILURE" in upper_val:
                 data["event_type"] = "SUPPLIER_FAILURE"
-            elif "FLOOD" in upper_val or "WEATHER" in upper_val:
+            elif "FLOOD" in upper_val or "WEATHER" in upper_val or "MONSOON" in upper_val or "RAIN" in upper_val:
                 data["event_type"] = "FLOOD"
-            elif "ROAD" in upper_val or "BLOCK" in upper_val or "ACCIDENT" in upper_val:
+            elif "STRIKE" in upper_val or "ROAD" in upper_val or "BLOCK" in upper_val or "ACCIDENT" in upper_val:
                 data["event_type"] = "ROUTE_BLOCKAGE"
             else:
                 data["event_type"] = "TRANSPORT_DELAY"

@@ -11,6 +11,7 @@ from app.agents.state import AgentState
 from app.agents.validators import validate_threat_payload
 from app.services.llm_factory import get_llm
 from app.services.llm_utils import invoke_llm_with_retry, parse_llm_json
+# pyrefly: ignore [missing-import]
 from langchain_core.prompts import PromptTemplate
 import logging
 

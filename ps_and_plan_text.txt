@@ -1,0 +1,397 @@
+Project Title
+
+Autonomous FMCG Supply Chain & Dynamic Disruption Management System using Multi-Agent AI
+
+Project Description
+
+1. Introduction & Problem Statement
+
+FMCG manufacturing (e.g., food, beverages, and daily consumer goods) depends on highly dynamic, high-volume supply chains dealing with perishable commodities like wheat, sugar, dairy, and specialized packaging. In the FMCG sector, sales patterns and raw material availability can be highly unpredictable, constantly influenced by shifting consumer preferences, extreme weather conditions, and market disruptions. Traditional supply chain systems are inherently reactive, relying on centralized control and historical data to flag shortages only after they occur. When an external crisis hits—such as unseasonal monsoons ruining a crop or a transport strike delaying perishable goods—human managers must manually calculate shelf-life decay, identify backup vendors, and negotiate routing. This manual decision latency leads to massive product spoilage, empty retail shelves, and significant revenue loss.
+
+2. The Proposed Agentic Solution
+
+This project introduces a "Self-Healing" Multi-Agent AI architecture designed to manage the variable, time-sensitive complexity of FMCG manufacturing. Moving beyond generative AI—which merely explains what data shows—this Agentic AI system is built to act. It deploys a virtual workforce of specialized software agents that continuously monitor operational data, make goal-directed decisions, and autonomously execute actions across enterprise systems without waiting for human instruction at each step.
+
+3. System Architecture & Workflow
+
+The framework utilizes multi-agent systems to optimize logistics across intricate supply chains, where each agent is responsible for specific tasks and collaborates to make adjustments in real time:
+
+Ingestion (Market Intel Agent): Continuously monitors external, unstructured real-time signals—such as live weather APIs, logistics networks, and local news feeds—to detect real-world disruptions instantly.
+
+Reasoning (Risk Assessment Agent): Analyzes the extracted threat data and cross-references the internal PostgreSQL database to identify exactly which commodity suppliers (e.g., flour or packaging film) are compromised.
+
+Calculation (Financial Analyst Agent): Dynamically executes Python/Pandas scripts to calculate the inventory depletion curve and potential spoilage decay. It evaluates how many days of production can continue and calculates the financial impact of buying from a secondary cash-and-carry vendor at a premium versus halting the production line.
+
+Execution (Strategy Agent): Operating within trusted enterprise guardrails, this agent autonomously reroutes shipments and reallocates inventory to prevent retail shortages. It executes API tool-calls (e.g., via SendGrid) to issue emergency purchase orders to pre-approved backup suppliers and automatically updates production schedules.
+
+4. Business Value
+
+By transitioning from human-dependent incident response to machine-speed resolution, this system ensures highly resilient operations. It optimizes inventory by dynamically reducing both stockouts and excess stock, minimizes perishable product spoilage, and demonstrates advanced Artificial Intelligence and Data Science capabilities in predictive decay math, multi-agent orchestration, and autonomous API execution.
+
+Project Blueprint: Autonomous FMCG Supply Chain & Disruption Management
+
+Executive Overview
+
+This project builds an Agentic AI State Machine designed for Fast-Moving Consumer Goods (FMCG) manufacturing. Unlike standard chatbots or static dashboards, this system continuously monitors unstructured external signals (news, weather, transport alerts), maps disruptions to an internal PostgreSQL inventory database, performs mathematical financial modeling, and autonomously executes real-world business operations (API purchase orders, database updates) within predefined guardrails.
+
+1. System Architecture & Component Hierarchy
+
+The system consists of four distinct architectural layers:
+
+[ External Data Sources ] ---> [ Ingestion & Reasoning Engine ]
+
+(News RSS, Weather APIs)               (CrewAI + LangGraph)
+
+|
+
+v
+
+[ Admin Dashboard UI ]  <---  [ Backend API & Database Layer ]
+
+(React / Next.js)              (FastAPI + PostgreSQL)
+
+|
+
+v
+
+[ Action Execution Layer ]
+
+(SendGrid API / SQL Mutations)
+
+Layer Breakdown
+
+Data Ingestion & Reasoning Engine (LangGraph + CrewAI): Manages cyclic agent workflows, ensures strict state retention, parses unstructured text into structured JSON, and triggers deterministic tool calls.
+
+Backend Engine (Python & FastAPI): Serves as the central API middleware handling data routing, executing local Python/Pandas calculation scripts, and connecting the AI graph to the database.
+
+Database (PostgreSQL): Stores live enterprise inventory, Bill of Materials (BOM) recipes, primary/backup supplier metrics, and audit logs.
+
+Frontend Dashboard (React.js / Next.js): Provides corporate admins with real-time stock visibility, live agent execution logs, disruption alerts, and manual intervention overrides.
+
+Action Execution Layer (SendGrid API & SQL Tool Calls): Generates and transmits B2B purchase orders via automated emails and updates inventory balances in PostgreSQL.
+
+2. PostgreSQL Database Schema Design
+
+To support FMCG manufacturing (such as biscuit/snack production), your PostgreSQL database requires six core relational tables:
+
+SQL
+
+-- 1. Raw Materials Table
+
+CREATE TABLE raw_materials (
+
+material_id SERIAL PRIMARY KEY,
+
+name VARCHAR(100) NOT NULL,
+
+category VARCHAR(50), -- e.g., Grain, Dairy, Fat, Packaging
+
+current_stock NUMERIC(10,2) NOT NULL,
+
+unit VARCHAR(20) NOT NULL, -- e.g., kg, liters, units
+
+reorder_level NUMERIC(10,2) NOT NULL,
+
+daily_consumption_rate NUMERIC(10,2) NOT NULL,
+
+shelf_life_days INT NOT NULL
+
+);
+
+-- 2. Suppliers Table
+
+CREATE TABLE suppliers (
+
+supplier_id SERIAL PRIMARY KEY,
+
+name VARCHAR(100) NOT NULL,
+
+contact_email VARCHAR(100) NOT NULL,
+
+location_region VARCHAR(100) NOT NULL,
+
+lead_time_days INT NOT NULL,
+
+reliability_score NUMERIC(3,2) DEFAULT 1.00
+
+);
+
+-- 3. Supplier Material Mapping (Pricing & Priority)
+
+CREATE TABLE supplier_materials (
+
+mapping_id SERIAL PRIMARY KEY,
+
+supplier_id INT REFERENCES suppliers(supplier_id),
+
+material_id INT REFERENCES raw_materials(material_id),
+
+unit_price NUMERIC(10,2) NOT NULL,
+
+is_primary BOOLEAN DEFAULT FALSE
+
+);
+
+-- 4. Bill of Materials (BOM / Products)
+
+CREATE TABLE products_bom (
+
+bom_id SERIAL PRIMARY KEY,
+
+product_name VARCHAR(100) NOT NULL,
+
+material_id INT REFERENCES raw_materials(material_id),
+
+required_quantity_per_unit NUMERIC(10,4) NOT NULL
+
+);
+
+-- 5. Disruption Logs
+
+CREATE TABLE disruption_logs (
+
+log_id SERIAL PRIMARY KEY,
+
+timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+source_event VARCHAR(255) NOT NULL,
+
+affected_material_id INT REFERENCES raw_materials(material_id),
+
+severity_level VARCHAR(20), -- LOW, MEDIUM, CRITICAL
+
+action_taken TEXT,
+
+status VARCHAR(50) DEFAULT 'PROCESSED'
+
+);
+
+-- 6. Purchase Orders
+
+CREATE TABLE purchase_orders (
+
+po_id SERIAL PRIMARY KEY,
+
+material_id INT REFERENCES raw_materials(material_id),
+
+supplier_id INT REFERENCES suppliers(supplier_id),
+
+order_quantity NUMERIC(10,2) NOT NULL,
+
+total_cost NUMERIC(12,2) NOT NULL,
+
+status VARCHAR(50) DEFAULT 'ISSUED', -- ISSUED, FULFILLED, CANCELLED
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+);
+
+3. The 4-Agent Execution Engine Design
+
++--------------------------+     +--------------------------+
+
+|  1. Market Intel Agent   | --> | 2. Risk Assessment Agent |
+
+| (Ingests Weather/News)   |     | (Queries DB for Impacts) |
+
++--------------------------+     +--------------------------+
+
+|
+
+v
+
++--------------------------+     +--------------------------+
+
+| 4. Strategy & Execution  | <-- | 3. Financial Analyst     |
+
+| (Calls SendGrid / SQL)   |     | (Pandas Depletion Math)  |
+
++--------------------------+     +--------------------------+
+
+Market Intel Agent: Ingests external RSS text or simulated API JSON regarding weather or transportation disruptions.
+
+Tool: CrewAI text parser.
+
+Output: Clean JSON threat payloads containing affected regions, keywords, and disruption types.
+
+Risk Assessment Agent: Accepts JSON threat alerts and queries the suppliers and raw_materials tables in PostgreSQL.
+
+Tool: SQLAlchemy / SQL Read Tools.
+
+Output: Identifies specifically impacted material IDs and calculates lead-time extensions.
+
+Financial Analyst Agent: Evaluates stock depletion curves against daily consumption rates and compares factory idle costs with backup vendor pricing markups.
+
+Tool: Python / Pandas execution node in LangGraph.
+
+Output: A deterministic decision metric (e.g., "Current stock depleted in 3 days. Purchasing from Supplier B costs $1,200 extra but saves $15,000 in factory downtime. Execute purchase.").
+
+Strategy & Execution Agent: Triggers write operations once mathematical conditions are met.
+
+Tools: SendGrid Email API tool, PostgreSQL INSERT INTO purchase_orders tool.
+
+Output: Dispatches B2B purchase order email and writes a log record to update the dashboard.
+
+4. Phase 1 Implementation Plan (Initial Stage)
+
+To build a functional prototype systematically, execute the initial setup across four targeted steps:
+
+Step 1: Environment & Repository Structure
+
+Establish a clean workspace repository with separate backend and frontend directories:
+
+fmcg-agentic-supply-chain/
+
+│
+
+├── backend/
+
+│   ├── app/
+
+│   │   ├── main.py              # FastAPI app initialization
+
+│   │   ├── database.py          # SQLAlchemy PostgreSQL connection
+
+│   │   ├── models.py            # Database tables schema
+
+│   │   ├── agents/              # LangGraph nodes & CrewAI definitions
+
+│   │   │   ├── market_intel.py
+
+│   │   │   ├── risk_assessment.py
+
+│   │   │   ├── financial_analyst.py
+
+│   │   │   └── execution_agent.py
+
+│   │   └── tools/               # SendGrid and SQL tools
+
+│   ├── requirements.txt
+
+│   └── .env
+
+│
+
+├── frontend/                    # Next.js / React application
+
+│   ├── components/              # Dashboard widgets & real-time loggers
+
+│   └── pages/                   # Main admin dashboard
+
+└── README.md
+
+Step 2: Dependencies Installation (requirements.txt)
+
+Set up key libraries for backend orchestration, web framework, and agent orchestration:
+
+Plaintext
+
+fastapi==0.110.0
+
+uvicorn==0.28.0
+
+sqlalchemy==2.0.28
+
+psycopg2-binary==2.9.9
+
+pandas==2.2.1
+
+langgraph==0.0.30
+
+langchain-core==0.1.30
+
+crewai==0.28.0
+
+sendgrid==6.11.0
+
+pydantic==2.6.4
+
+python-dotenv==1.0.1
+
+Step 3: Populate Mock FMCG Enterprise Data
+
+Insert starter data into PostgreSQL representing an FMCG biscuit manufacturer:
+
+Raw Materials: Grade-A Wheat Flour, Refined Sugar, Palm Oil, Cocoa Powder, Branded Packaging Film.
+
+Primary Suppliers: Regional Agro Farms (Flour), Global Sugars Ltd (Sugar).
+
+Backup Suppliers: National Cash & Carry (Higher unit cost, 1-day lead time).
+
+Step 4: Validate Core Endpoints
+
+Develop basic FastAPI routes in main.py to confirm database connectivity and graph triggering:
+
+GET /api/inventory: Fetches live material stock levels.
+
+POST /api/trigger-disruption: Accepts a manual disruption payload (e.g., {"event": "Monsoon Flooding", "region": "North"}) to execute the LangGraph workflow manually for testing.
+
+Tools & Technologies
+
+1. AI & Agent Orchestration
+
+LangGraph: Stateful, cyclic workflow orchestration, graph memory management, and deterministic state transitions.
+
+CrewAI: Persona definition and role-based unstructured text extraction (e.g., parsing news/weather feeds into structured JSON).
+
+LangChain / LLMs: Integration framework for Large Language Models (OpenAI GPT-4, Anthropic Claude, or local Llama models via Ollama) to drive reasoning and tool-calling capabilities.
+
+2. Backend & Data Infrastructure
+
+Python: Core programming language for logic execution, data manipulation, and AI pipelines.
+
+FastAPI & Uvicorn: Asynchronous REST API framework and ASGI server to handle client requests, webhooks, and routing between UI and AI agents.
+
+PostgreSQL: Relational database management system for storing structured enterprise data (inventory, Bill of Materials, supplier metrics, logs).
+
+SQLAlchemy: Python ORM (Object-Relational Mapper) for safe, programmatic database transactions and SQL mutations.
+
+3. Data Analysis & Automation
+
+Pandas & NumPy: Data analysis libraries used by the Financial Agent to perform real-time stock depletion calculations, decay modeling, and profit/loss trade-off math.
+
+Pydantic: Data validation and settings management using Python type annotations to enforce strict JSON schemas across tools.
+
+4. Frontend & Admin Dashboard
+
+React.js / Next.js: Modern Web UI framework for building the internal administrator dashboard.
+
+Tailwind CSS: Utility-first CSS framework for real-time visualization of stock levels, disruption alerts, and live agent execution logs.
+
+5. External Integrations & Developer Tools
+
+SendGrid API: Email dispatch service for generating and issuing automated B2B purchase orders.
+
+Git & GitHub: Source control management for collaborative code development.
+
+Docker: Containerization platform for bundling backend, database, and agent environments into reproducible services.
+
+Skills Gained
+
+1. Agentic AI & Systems Engineering
+
+Cyclic State Management: Moving beyond basic sequential chains by engineering stateful, cyclic multi-agent graphs using LangGraph.
+
+LLM Tool Calling (Function Calling): Training and engineering LLMs to step outside chat windows and execute real-world programmatic actions (database writes, API triggers).
+
+Unstructured-to-Structured Processing: Converting chaotic text data (news, weather feeds, logistics alerts) into deterministic JSON schemas.
+
+2. Backend & Database Architecture
+
+Enterprise Database Modeling: Designing relational schemas (PostgreSQL) optimized for multi-tier supply chain dynamics, including raw material inventories, BOM dependencies, and purchase orders.
+
+Asynchronous API Design: Building performant FastAPI routes that handle background agent processing without blocking frontend UI components.
+
+ORM Operations: Managing database state changes safely through SQLAlchemy tools and transaction handling.
+
+3. Applied Data Analytics & Business Logic
+
+Automated Quantitative Modeling: Writing automated Python/Pandas scripts that simulate inventory depletion curves, lead-time variances, and operational downtime costs.
+
+Translating Real-World Constraints into Code: Mapping complex business scenarios (spoilage, component dependencies, supplier reliability scores) into deterministic code rules.
+
+4. Full-Stack End-to-End System Integration
+
+Autonomous Workflows: Connecting real-time web ingestion down to automated email communications and database updates.
+
+Human-in-the-Loop Orchestration: Designing system architectures where AI operates autonomously within strict thresholds while providing clear audit logs and manual overrides for admin managers.

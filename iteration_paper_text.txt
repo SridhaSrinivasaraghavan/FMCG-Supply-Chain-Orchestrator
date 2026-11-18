@@ -1,0 +1,735 @@
+Autonomous FMCG Supply Chain & Production Disruption Management using Multi-Agent AI
+
+Abstract
+
+Fast-Moving Consumer Goods (FMCG) manufacturing depends on a reliable flow of raw materials, suppliers, transportation, and production activities. Unexpected events such as extreme weather, transportation delays, supplier failures, and raw material shortages can disrupt these operations and lead to production delays, stockouts, higher costs, and product spoilage. Existing approaches often depend on manual monitoring or predefined rules, making it difficult to respond quickly to complex and changing disruptions. This research proposes an autonomous Multi-Agent Artificial Intelligence (AI) system for detecting, assessing, and managing supply chain disruptions in FMCG manufacturing. The proposed system combines external disruption signals such as weather, news, and logistics information with internal enterprise data related to inventory, suppliers, production, and financial parameters. A four-agent framework is used, consisting of Market Intelligence, Risk Assessment, Financial Analyst, and Strategy & Execution agents. LangGraph and CrewAI are used to coordinate the agents, while FastAPI and PostgreSQL support data processing and enterprise operations. The system aims to identify affected materials and suppliers, assess inventory and production impact, evaluate financial trade-offs, and select suitable mitigation actions. The proposed approach seeks to make FMCG disruption management more proactive, coordinated, and autonomous.
+
+Keywords: FMCG, Supply Chain Management, Multi-Agent AI, Disruption Management, LangGraph, CrewAI, Autonomous Decision-Making
+
+1. Introduction
+
+FMCG manufacturing relies on a continuous supply of raw materials and smooth coordination between suppliers, transportation, inventory, and production. However, unexpected events such as extreme weather, transportation delays, supplier problems, and material shortages can interrupt this flow. Since these activities are closely connected, a disruption in one area can quickly affect inventory levels, production schedules, costs, and product availability.
+
+Many existing supply chain systems mainly depend on manual monitoring or predefined rules to handle such situations. Recent research has shown the potential of Multi-Agent Systems and AI for autonomous supply chain coordination and disruption management. However, existing approaches still have limitations, including simplified supply-chain representations, broad manufacturing applications, simulation-based evaluation, and limited integration between external disruption signals and FMCG production requirements.
+
+To address this problem, this research proposes an Autonomous FMCG Supply Chain and Production Disruption Management system using Multi-Agent AI. The system connects external disruption information with internal enterprise data to provide a complete decision-making process from disruption detection to mitigation. The proposed architecture uses a four-agent execution engine: the Market Intelligence Agent identifies and structures disruption signals, the Risk Assessment Agent identifies affected materials and suppliers, the Financial Analyst Agent evaluates inventory depletion and financial impact, and the Strategy & Execution Agent selects and executes suitable mitigation actions.
+
+The system uses LangGraph and CrewAI for multi-agent orchestration, with FastAPI and PostgreSQL supporting the backend and enterprise data layer. The main objective is to move FMCG supply chain management from a reactive, human-dependent process toward a more proactive and autonomous approach. The proposed system will be evaluated in a simulated FMCG manufacturing environment using disruption scenarios such as monsoon flooding, with measures including response latency, cost optimization, and inventory resilience.
+
+2.Literature Survey:
+
+Xu et al. (2024) proposed an Agent-Based Autonomous Supply Chain (A2SC) framework using a Multi-Agent System to implement autonomous supply-chain processes. The study presents an autonomous meat supply-chain case study involving procurement, supplier selection, logistics monitoring, inventory management and adaptation to unforeseen events. Gaia and ROADMAP methodologies were used for agent-system analysis and design, while the prototype employed agent communication and Contract-Net-based coordination. However, the prototype primarily relies on straightforward rule-based decision-making and has limited intelligence, with the authors noting that it does not fully address financial and product flows and uses a simplified representation of the real supply chain. This indicates a need for more intelligent disruption-oriented systems capable of combining heterogeneous real-time data with predictive models and autonomous decision-making. The proposed work extends this direction by focusing specifically on FMCG supply chain and production disruptions and integrating specialized AI agents for disruption detection, impact assessment, and mitigation planning.
+
+The Impact of Multiagent Systems on Autonomous Production and Supply Chain Networks
+
+Nitsche et al. (2023) investigated the potential of Multi-Agent Systems for autonomous production and supply-chain networks, with particular emphasis on logistics network resilience. The authors conducted a three-stage Delphi study involving 18 industry experts to identify and evaluate 11 MAS use cases according to their potential to improve resilience, productivity and implementation feasibility. The study highlights MAS as a suitable approach for decentralized supply-chain decision-making and identifies barriers including insufficient technological maturity, lack of standardization, high implementation costs, complex change management and limited practical use cases. However, the study is primarily an expert-based assessment rather than an implemented autonomous disruption-management system, and its qualitative and heterogeneous Delphi design limits industry-specific conclusions. Therefore, the proposed work moves from the identification of MAS potential toward an implemented FMCG-oriented multi-agent framework for real-time disruption detection, impact assessment and mitigation.
+
+Distributed AI-Enabled Intelligent Control System for Enterprise Procurement and Supply-Chain Management
+
+Liu (2025) proposed a distributed AI-enabled intelligent control framework for enterprise procurement and supply-chain management that integrates IoT sensing, edge-cloud data fusion, deep-learning forecasting, NLP-based risk detection, reinforcement learning and federated multi-agent coordination. LSTM and Transformer models are used for sequential and multimodal forecasting, while NLP analyses supplier contracts, risk reports and communications to identify anomalies and trigger mitigation workflows. The framework demonstrated improvements in data-fusion accuracy, demand forecasting, contract anomaly detection, coordination delay and procurement exceptions. However, the framework requires substantial computational and IoT infrastructure, and the authors identify the need for multi-enterprise trials to improve generalizability. In contrast, the proposed work focuses specifically on FMCG disruption management, linking disruption detection to its downstream effects on inventory and production and enabling specialized agents to determine appropriate mitigation strategies.
+
+Autonomous Supply Chain Disruption Response Using Multi-Agent AI Systems
+
+Yan et al. (2025) developed an autonomous multi-agent AI framework for supply-chain disruption response and evaluated it using real disruption data from 127 manufacturing facilities. The system employs specialized monitoring, analysis, procurement, logistics and inventory agents. Monitoring agents process IoT data, supplier information, news, weather, geopolitical events and transportation information using NLP and anomaly detection, while analysis agents use digital-twin simulation and multi-objective optimization to evaluate alternative responses. Inventory agents employ Deep Q-Network reinforcement learning for replenishment and allocation decisions. The system achieved substantial improvements in response time and forecasting performance compared with manual, rule-based and predictive approaches. Although this work is closely related to autonomous disruption management, its evaluation covers general manufacturing sectors such as automotive, electronics and pharmaceuticals rather than specifically addressing FMCG production processes. The proposed work therefore specializes the multi-agent disruption-response concept for FMCG environments by explicitly connecting external disruption events with raw-material availability, inventory status, production requirements and product-level consequences.
+
+Self-Supervised Multi-Agent Learning Algorithm for Automated Supply Chain Coordination and Disruption Recovery
+
+Ergashev et al. (2026) introduced SSMASC, a self-supervised multi-agent learning algorithm designed for decentralized supply-chain coordination and disruption recovery. The approach combines contrastive self-supervised pre-training on unlabelled operational data with cooperative multi-agent reinforcement learning and graph-attention-based communication. A disruption-aware value-decomposition mechanism is used to support recovery when agents have partial observations. The method was evaluated across three simulated supply-chain environments, including a 128-node global trade network containing geopolitical, port, supplier, logistics, demand and weather disruptions. The authors reported improvements in resilience, recovery time, profit and service level compared with existing MARL methods. However, the approach is primarily evaluated in simulation and faces practical challenges related to ERP integration, incomplete real-time inventory information, changing supply-chain topology and uncertainty in disruption detection. The proposed work therefore focuses on translating multi-agent disruption intelligence into an application-oriented FMCG environment by integrating operational and external data sources with production and inventory information.
+
+3. Research Gap
+
+3.1 Research Gap
+
+Existing studies demonstrate the potential of Multi-Agent Systems and Artificial Intelligence for autonomous supply-chain coordination, disruption detection, inventory management, and recovery. However, several limitations remain. Xu et al. (2024) proposed an autonomous supply-chain framework using multi-agent coordination, but the prototype primarily relies on rule-based decision-making and uses a simplified representation of the real supply chain, with limited consideration of financial and product flows [1]. Nitsche et al. (2023) investigated the potential of Multi-Agent Systems for autonomous production and supply-chain networks and identified their value for decentralized decision-making and resilience; however, the work is primarily an expert-based Delphi assessment rather than a complete implemented autonomous disruption-management system [2].
+
+More recent approaches integrate several AI technologies for supply-chain intelligence. Liu (2025) proposed a distributed AI-enabled enterprise supply-chain framework combining IoT sensing, edge-cloud data fusion, deep-learning forecasting, NLP-based risk detection, reinforcement learning, and federated multi-agent coordination. However, the framework requires substantial computational and IoT infrastructure and addresses supply-chain management at a broad enterprise level rather than focusing specifically on the relationship between disruption events, raw-material availability, inventory status, and FMCG production continuity [3]. Yan et al. (2025) developed an autonomous multi-agent disruption-response framework with monitoring, analysis, procurement, logistics, and inventory agents and evaluated it across manufacturing facilities. Although closely related to autonomous disruption management, its application covers general manufacturing sectors such as automotive, electronics, and pharmaceuticals rather than specifically addressing FMCG production processes and product-level consequences [4].
+
+Ergashev et al. (2026) further explored self-supervised multi-agent learning and cooperative multi-agent reinforcement learning for disruption recovery. The approach was evaluated mainly in simulated supply-chain environments, while practical challenges remain in ERP integration, incomplete real-time inventory information, changing supply-chain topology, and uncertainty in disruption detection [5].
+
+Therefore, a research gap exists in developing an application-oriented, FMCG-specific multi-agent framework that connects external real-world disruption signals with internal enterprise data and production requirements within a single decision-making loop. In particular, there is a need to integrate disruption detection, affected raw-material identification, inventory depletion analysis, production-impact assessment, alternate supplier evaluation, financial trade-off analysis, and mitigation execution within a coordinated multi-agent architecture.
+
+The proposed work addresses this gap by developing an autonomous FMCG supply-chain disruption-management system in which specialized agents collaborate to transform external disruption signals into structured threat information, identify affected materials and suppliers, evaluate inventory and financial consequences, and determine appropriate mitigation strategies. This direction is consistent with the proposed methodology, which connects external data sources, an ingestion and reasoning engine, a FastAPI/PostgreSQL enterprise layer, and an action-execution layer.
+
+3.2 Consolidated Research Gap
+
+Existing Work
+
+Main Limitation
+
+Gap Addressed by Proposed Work
+
+Xu et al. (2024)
+
+Rule-based intelligence; simplified supply-chain representation; limited financial/product flows.
+
+AI-driven FMCG disruption detection, impact assessment, and mitigation.
+
+Nitsche et al. (2023)
+
+Expert/Delphi-based assessment; no complete autonomous implementation.
+
+Implemented domain-specific FMCG disruption-management framework.
+
+Liu (2025)
+
+High infrastructure requirement; broad enterprise SCM scope.
+
+FMCG-focused disruption and production management linked to operational data.
+
+Yan et al. (2025)
+
+General manufacturing focus rather than FMCG-specific production consequences.
+
+Connects disruption events with FMCG raw materials, inventory, production, and product-level effects.
+
+Ergashev et al. (2026)
+
+Primarily simulation-based; practical ERP and real-time data integration challenges.
+
+Application-oriented integration of external and operational FMCG data.
+
+3.3 Dataset Plan
+
+The dataset should support the complete decision chain of the proposed system: Disruption Detection → Supplier/Material Impact → Inventory Depletion → Production Impact → Alternate Supplier Evaluation → Financial Assessment → Mitigation Decision.
+
+A single public dataset is unlikely to contain all the required relationships among external disruption events, suppliers, raw materials, inventory, production, logistics, demand, shelf life, and financial parameters. Therefore, the recommended approach is a hybrid data architecture: external disruption signals can be obtained from real/public sources where available, while the internal FMCG enterprise data can be constructed as a realistic relational/synthetic dataset for the simulated manufacturing environment.
+
+A. External Disruption Events
+
+Feature
+
+Description
+
+Example
+
+event_id
+
+Unique disruption identifier
+
+EVT001
+
+event_type
+
+Type of disruption
+
+Flood
+
+event_description
+
+Description of event
+
+Heavy flooding affecting transport
+
+region
+
+Affected geographical region
+
+North
+
+event_date
+
+Date of occurrence
+
+2026-07-15
+
+severity
+
+Disruption severity
+
+High
+
+affected_route
+
+Affected transportation route
+
+North–Central
+
+estimated_delay_days
+
+Expected logistics delay
+
+4
+
+source
+
+Source of external signal
+
+Weather API / News
+
+confidence_score
+
+Confidence of detected event
+
+0.91
+
+Purpose: These fields allow the Market Intelligence Agent to identify disruption type, location, severity, and expected logistics impact and convert external signals into a structured threat representation.
+
+B. Raw Material and Inventory
+
+Feature
+
+Description
+
+Example
+
+material_id
+
+Unique material identifier
+
+RM001
+
+material_name
+
+Raw material name
+
+Grade-A Wheat Flour
+
+material_category
+
+Material category
+
+Raw Material
+
+perishable
+
+Whether material is perishable
+
+Yes
+
+current_stock
+
+Current inventory quantity
+
+5000 kg
+
+unit
+
+Measurement unit
+
+kg
+
+daily_consumption
+
+Daily production requirement
+
+1000 kg
+
+safety_stock
+
+Minimum desired inventory
+
+1500 kg
+
+reorder_level
+
+Reorder threshold
+
+2000 kg
+
+shelf_life_days
+
+Total shelf life
+
+30
+
+remaining_shelf_life
+
+Remaining usable shelf life
+
+18
+
+unit_cost
+
+Normal procurement cost
+
+Project-defined
+
+supplier_id
+
+Primary supplier identifier
+
+SUP001
+
+plant_id
+
+Manufacturing plant identifier
+
+PLANT01
+
+Purpose: These features allow the Risk Assessment and Financial Analyst Agents to determine affected materials, calculate inventory depletion, estimate days of production remaining, and assess spoilage-related consequences.
+
+C. Supplier and Alternate Supplier Data
+
+Feature
+
+Description
+
+supplier_id
+
+Unique supplier identifier
+
+supplier_name
+
+Supplier name
+
+supplier_type
+
+Primary / Backup
+
+material_id
+
+Material supplied by the supplier
+
+region
+
+Supplier location
+
+available_quantity
+
+Currently available quantity
+
+unit_price
+
+Procurement price per unit
+
+lead_time_days
+
+Normal delivery time
+
+emergency_lead_time
+
+Emergency delivery time
+
+reliability_score
+
+Supplier reliability score
+
+capacity
+
+Maximum supply capacity
+
+approved_status
+
+Approved / Not Approved
+
+minimum_order_quantity
+
+Minimum order requirement
+
+transportation_cost
+
+Transportation cost
+
+Purpose: These fields enable alternate-supplier identification and ranking based on availability, price, lead time, reliability, capacity, and business approval constraints.
+
+D. Production Data
+
+Feature
+
+Description
+
+production_id
+
+Production record identifier
+
+plant_id
+
+Manufacturing plant
+
+product_id
+
+Finished product identifier
+
+material_id
+
+Required raw material
+
+required_quantity_per_batch
+
+Raw-material quantity needed per batch
+
+daily_production_capacity
+
+Maximum daily production capacity
+
+planned_production_quantity
+
+Planned production quantity
+
+production_date
+
+Planned production date
+
+current_production_status
+
+Normal / Delayed / Stopped
+
+production_priority
+
+Production priority level
+
+Purpose: Production data connects raw-material availability to manufacturing continuity and allows the system to determine whether a disruption is likely to cause production delay or stoppage.
+
+E. Finished Product and Demand Data
+
+Feature
+
+Description
+
+product_id
+
+Finished product identifier
+
+product_name
+
+Product name
+
+product_category
+
+Biscuit / Beverage / etc.
+
+current_finished_stock
+
+Current finished-goods inventory
+
+daily_demand
+
+Daily market demand
+
+selling_price
+
+Selling price
+
+product_shelf_life
+
+Finished-product shelf life
+
+retail_priority
+
+Priority of product
+
+stockout_threshold
+
+Minimum acceptable stock level
+
+Purpose: These features connect production disruption to finished-goods availability, demand fulfillment, and retail stockout risk.
+
+F. Logistics and Shipment Data
+
+Feature
+
+Description
+
+shipment_id
+
+Shipment identifier
+
+supplier_id
+
+Supplier associated with shipment
+
+material_id
+
+Material being transported
+
+origin
+
+Shipment origin
+
+destination
+
+Factory destination
+
+transport_mode
+
+Road / Rail / etc.
+
+planned_delivery_date
+
+Original expected delivery date
+
+estimated_arrival_date
+
+Updated expected arrival
+
+delay_days
+
+Expected/observed delay
+
+route_status
+
+Normal / Blocked / Delayed
+
+transport_cost
+
+Transportation cost
+
+Purpose: Logistics data allows the system to translate an external disruption into a potential shipment delay and evaluate whether rerouting or alternate procurement is required.
+
+G. Financial Parameters
+
+Feature
+
+Description
+
+material_unit_cost
+
+Normal raw-material procurement cost
+
+backup_supplier_price
+
+Price offered by alternate supplier
+
+price_markup
+
+Additional emergency procurement percentage
+
+transportation_cost
+
+Emergency transportation cost
+
+production_idle_cost_per_day
+
+Cost of factory downtime per day
+
+lost_sales_per_day
+
+Estimated sales loss per day
+
+spoilage_cost
+
+Expected spoilage-related loss
+
+emergency_procurement_cost
+
+Total emergency procurement expense
+
+total_disruption_cost
+
+Estimated overall disruption impact
+
+Purpose: Financial parameters allow the Financial Analyst Agent to compare emergency procurement against production shutdown, lost sales, and spoilage costs.
+
+3.4 Minimum Dataset Required for the Prototype
+
+For the first implementation, the dataset does not need to contain every possible enterprise feature. The following minimum fields are sufficient to demonstrate the core agentic workflow:
+
+Data Category
+
+Minimum Features
+
+Disruption
+
+event_id, event_type, region, severity, event_date, estimated_delay_days
+
+Material / Inventory
+
+material_id, material_name, supplier_id, current_stock, daily_consumption, safety_stock, shelf_life_days, unit_cost
+
+Supplier
+
+supplier_id, supplier_type, region, material_id, available_quantity, unit_price, lead_time_days, emergency_lead_time, reliability_score, approved_status
+
+Production
+
+plant_id, product_id, material_id, required_quantity, daily_production_capacity, planned_production
+
+Finished Product
+
+product_id, product_name, current_stock, daily_demand, selling_price, shelf_life
+
+Financial
+
+backup_supplier_price, production_idle_cost_per_day, lost_sales_per_day, spoilage_cost
+
+3.5 Recommended Relational Database Structure
+
+The internal enterprise data should preferably be maintained as related PostgreSQL tables rather than as a single flat CSV file. This supports the agent workflow and allows the Risk Assessment Agent to query relationships among disruption events, suppliers, materials, inventory, and production.
+
+disruption_events
+
+suppliers
+
+materials
+
+inventory
+
+production
+
+products
+
+shipments
+
+demand
+
+financial_parameters
+
+Disruption Event → Supplier/Route → Raw Material → Inventory → Production → Finished Product → Demand/Stockout Risk → Financial Impact → Mitigation
+
+3.6 Dataset-to-Agent Mapping
+
+Data / Features
+
+Agent
+
+Purpose
+
+Weather, news, event type, region, severity
+
+Market Intelligence Agent
+
+Detect and structure disruption signals
+
+Region, supplier-material mapping, lead time
+
+Risk Assessment Agent
+
+Identify affected suppliers/materials and estimate delay
+
+Current stock, daily consumption, safety stock
+
+Financial Analyst Agent
+
+Calculate inventory depletion and production availability
+
+Shelf life, remaining shelf life
+
+Financial Analyst Agent
+
+Estimate spoilage risk
+
+Production requirements and capacity
+
+Financial Analyst Agent
+
+Estimate production impact
+
+Supplier availability, capacity, approval status
+
+Strategy & Execution Agent
+
+Identify feasible alternate suppliers
+
+Price, markup, lead time, reliability
+
+Strategy & Execution Agent
+
+Compare and rank mitigation options
+
+Idle cost, lost sales, spoilage, procurement cost
+
+Financial Analyst Agent
+
+Calculate financial trade-offs
+
+Purchase-order and inventory update information
+
+Strategy & Execution Agent
+
+Execute controlled mitigation actions
+
+3.7 Recommended Dataset Construction Strategy
+
+External disruption data: use real or publicly available weather, news, and logistics signals where feasible.
+
+Enterprise FMCG data: construct a realistic synthetic relational dataset representing a biscuit-manufacturing environment.
+
+Raw materials: begin with Grade-A Wheat Flour and Refined Sugar, as specified in the proposed experimental setup.
+
+Supplier network: include primary suppliers and approved backup vendors with different prices, capacities, and lead times.
+
+Disruption scenarios: create controlled events such as monsoon flooding, transport strikes, supplier shutdowns, raw-material shortages, route blockages, and unexpected demand surges.
+
+Scenario labels: record the disruption scenario and expected operational consequence so that system decisions can be evaluated consistently.
+
+3.8 Primary Demonstration Scenario
+
+The methodology document specifies a simulated FMCG manufacturing environment based on a biscuit manufacturer and identifies a primary test scenario involving a 'Monsoon Flooding' event in the 'North' region. The system is intended to receive the disruption payload through a FastAPI endpoint and determine whether orders should be dynamically rerouted. This scenario should therefore be retained as the main end-to-end demonstration case.
+
+Recommended scenario flow: Monsoon flooding → affected North-region supplier/route → raw-material availability risk → inventory depletion calculation → production continuity assessment → alternate supplier evaluation → emergency procurement versus shutdown cost comparison → mitigation decision.
+
+3.9 Handoff Requirements for Methodology & Evaluation
+
+Use the defined disruption, inventory, supplier, production, logistics, product, demand, and financial fields as inputs to the agent workflow.
+
+Use the PostgreSQL relational structure for the simulated FMCG enterprise environment.
+
+Use the monsoon-flooding scenario as the primary end-to-end test case.
+
+Evaluate whether the agents correctly identify affected materials and suppliers.
+
+Measure inventory depletion and estimated production continuity.
+
+Compare alternate-supplier procurement cost with the estimated cost of production stoppage and related losses.
+
+Record system response latency from disruption ingestion to mitigation-plan generation.
+
+Record whether the mitigation action is feasible under supplier availability, approval status, capacity, and lead-time constraints.
+
+3.10 Important Notes Before Final Paper Submission
+
+Do not claim that the system reduces cost, stockouts, spoilage, or response time by a specific percentage until the value has been measured experimentally.
+
+The current methodology document describes a simulated FMCG environment; the paper should clearly distinguish simulation results from real industrial deployment.
+
+The final paper should use the exact bibliographic details and citation numbering from the team's finalized reference list. The [1]–[5] labels in this document are working placeholders corresponding to the studies discussed in the supplied Literature Survey.
+
+If real external APIs are not available during evaluation, simulated disruption payloads should be clearly identified as simulation inputs rather than represented as live production data.
+
+The dataset should be relational and internally consistent: supplier availability, inventory, production requirements, lead times, costs, and demand must agree with one another in every scenario.
+
+Source Alignment
+
+This document was prepared from the team's supplied Literature Survey and Proposed Methodology documents. The Literature Survey identifies limitations of prior multi-agent supply-chain studies and positions the proposed work as an FMCG-specific disruption and production-management framework. The Proposed Methodology defines the four-tier architecture, four-agent execution engine, PostgreSQL/FastAPI environment, and primary monsoon-flooding evaluation scenario. The dataset plan translates those requirements into concrete data entities and features.
+
+4. Proposed Methodology
+
+This section outlines the conceptual framework of the proposed Agentic AI system, which transitions supply chain management from a reactive, human-dependent model to a proactive, autonomous architecture.
+
+4.1 System Architecture The proposed framework utilizes a four-tier architecture designed to bridge the gap between unstructured external data and autonomous enterprise execution. The layers flow chronologically as follows:
+
+External Data Sources: Ingests live environmental and market signals.
+
+Ingestion & Reasoning Engine: Acts as the cognitive layer, parsing data and making goal-directed decisions.
+
+Backend API & Database Layer: Serves as the central middleware (FastAPI) and maintains the relational state of the enterprise (PostgreSQL).
+
+Action Execution Layer: Bridges the AI to the real world by executing SQL mutations and external API tool-calls (e.g., SendGrid).
+
+4.2 Multi-Agent Orchestration (LangGraph & CrewAI)
+
+Moving beyond basic sequential chains, this system engineers stateful, cyclic multi-agent graphs using LangGraph. This orchestration manages cyclic workflows and ensures strict state retention. By integrating CrewAI, the framework seamlessly converts chaotic, unstructured text data—such as news or weather feeds—into deterministic JSON schemas. This structured data then triggers deterministic tool calls for the downstream agents.
+
+4.3 The 4-Agent Execution Engine
+
+The core reasoning engine deploys a virtual workforce of specialized software agents, each responsible for discrete operational tasks:
+
+Market Intel Agent: Ingests external RSS text or simulated API JSON regarding weather or transportation disruptions. It processes these signals to output clean JSON threat payloads containing affected regions and disruption types.
+
+Risk Assessment Agent: Accepts the JSON threat alerts and directly queries the PostgreSQL database tables. It identifies specifically impacted material IDs and calculates potential lead-time extensions.
+
+Financial Analyst Agent: Utilizing Python and Pandas within a LangGraph node, this agent evaluates stock depletion curves against daily consumption rates. It calculates the profit/loss trade-offs by comparing factory idle costs against the pricing markups of backup vendors.
+
+Strategy & Execution Agent: Operating within predefined business guardrails, this agent triggers automated write operations once mathematical conditions are met. It utilizes PostgreSQL tools to update inventory logs and the SendGrid API to autonomously dispatch B2B purchase orders.
+
+5. Experimental Setup and Evaluation
+
+To validate the efficacy of the proposed Multi-Agent AI system, a simulated FMCG manufacturing environment will be established to test autonomous disruption resolution.
+
+5.1 Dataset & Environment The evaluation will utilize mock FMCG enterprise data representing a biscuit manufacturer, stored within a PostgreSQL database. This database will track perishable commodities, specifically Grade-A Wheat Flour and Refined Sugar. The environment will also contain predefined relational mappings for primary suppliers and backup vendors (e.g., "National Cash & Carry" with higher unit costs but faster lead times).
+
+5.2 Simulation Scenarios
+
+The system's responsiveness will be tested by injecting manual disruption payloads into the system via a FastAPI endpoint. The primary experimental scenario will involve simulating extreme weather conditions, specifically a "Monsoon Flooding" event
+
+in the "North" region, to observe if the agents can dynamically reroute orders.
+
+5.3 Evaluation Metrics
+
+To prove the system's superiority over traditional, manual incident response, the framework will be evaluated against the following performance metrics:
+
+Response Latency: Measures the transition speed from human-dependent incident response to machine-speed resolution. It tracks the total time from threat ingestion to the issuance of a mitigation plan.
+
+Cost Optimization: Calculates the financial trade-off evaluated by the system, specifically measuring the financial impact of buying from a secondary vendor at a premium versus the cost of halting the production line.
+
+Inventory Resilience: Measures the system's ability to dynamically optimize inventory, specifically tracking the reduction in stockouts, excess stock, and perishable product spoilage.
